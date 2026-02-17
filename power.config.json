@@ -1,0 +1,13 @@
+{
+  "appId": "6d03e51d-1113-4a93-acc7-22372e5fc13c",
+  "appDisplayName": "SimQuip",
+  "description": null,
+  "environmentId": "a67592d2-e775-e14c-bb5a-6366576198ca",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "logoPath": "Default",
+  "localAppUrl": "http://localhost:3000/",
+  "region": "prod",
+  "connectionReferences": {},
+  "databaseReferences": {}
+}
