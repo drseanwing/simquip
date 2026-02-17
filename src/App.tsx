@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { Spinner } from '@fluentui/react-components'
 import AppShell from './components/AppShell'
 
@@ -19,7 +19,7 @@ const LoanCreatePage = lazy(() => import('./pages/LoanCreatePage'))
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Suspense fallback={<Spinner size="large" label="Loading..." />}>
         <Routes>
           <Route element={<AppShell />}>
@@ -39,6 +39,6 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
-    </BrowserRouter>
+    </HashRouter>
   )
 }

@@ -4,10 +4,7 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import PowerProvider from './PowerProvider'
 import App from './App'
-import { registerServiceWorker } from './registerSw'
 import './index.css'
-
-registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
