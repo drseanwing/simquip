@@ -1,5 +1,14 @@
 import { EquipmentStatus, LoanReason, LoanStatus, OwnerType } from '../types'
-import type { Building, Equipment, Level, LoanTransfer, Location, Person, Team } from '../types'
+import type {
+  Building,
+  Equipment,
+  Level,
+  LoanTransfer,
+  Location,
+  Person,
+  Team,
+  TeamMember,
+} from '../types'
 
 // ── UUIDs ──────────────────────────────────────────────────────────────────────
 // Pre-generated so that cross-entity references are stable.
@@ -51,6 +60,15 @@ const EQUIP_SUTURE_PAD = 'f1b2c3d4-0009-4000-8000-000000000009'
 const EQUIP_VENTILATOR = 'f1b2c3d4-0010-4000-8000-000000000010'
 const EQUIP_PROJECTOR = 'f1b2c3d4-0011-4000-8000-000000000011'
 const EQUIP_CAMERA = 'f1b2c3d4-0012-4000-8000-000000000012'
+
+// Team Members
+const TM_ALICE_SIM = 'h1b2c3d4-0001-4000-8000-000000000001'
+const TM_DAN_SIM = 'h1b2c3d4-0002-4000-8000-000000000002'
+const TM_BOB_TRN = 'h1b2c3d4-0003-4000-8000-000000000003'
+const TM_EVE_TRN = 'h1b2c3d4-0004-4000-8000-000000000004'
+const TM_CAROL_CSK = 'h1b2c3d4-0005-4000-8000-000000000005'
+const TM_GRACE_CSK = 'h1b2c3d4-0006-4000-8000-000000000006'
+const TM_FRANK_BME = 'h1b2c3d4-0007-4000-8000-000000000007'
 
 // Loan Transfers
 const LOAN_1 = 'g1b2c3d4-0001-4000-8000-000000000001'
@@ -507,5 +525,50 @@ export const mockLoanTransfers: LoanTransfer[] = [
     isInternalTransfer: false,
     status: LoanStatus.Active,
     notes: 'Camera sent for firmware update',
+  },
+]
+
+export const mockTeamMembers: TeamMember[] = [
+  {
+    teamMemberId: TM_ALICE_SIM,
+    teamId: TEAM_SIM,
+    personId: PERSON_ALICE,
+    role: 'Team Lead',
+  },
+  {
+    teamMemberId: TM_DAN_SIM,
+    teamId: TEAM_SIM,
+    personId: PERSON_DAN,
+    role: 'Simulation Technician',
+  },
+  {
+    teamMemberId: TM_BOB_TRN,
+    teamId: TEAM_TRAINING,
+    personId: PERSON_BOB,
+    role: 'Training Coordinator',
+  },
+  {
+    teamMemberId: TM_EVE_TRN,
+    teamId: TEAM_TRAINING,
+    personId: PERSON_EVE,
+    role: 'Training Officer',
+  },
+  {
+    teamMemberId: TM_CAROL_CSK,
+    teamId: TEAM_CLINICAL,
+    personId: PERSON_CAROL,
+    role: 'Clinical Educator',
+  },
+  {
+    teamMemberId: TM_GRACE_CSK,
+    teamId: TEAM_CLINICAL,
+    personId: PERSON_GRACE,
+    role: 'Skills Instructor',
+  },
+  {
+    teamMemberId: TM_FRANK_BME,
+    teamId: TEAM_BIOMEDICAL,
+    personId: PERSON_FRANK,
+    role: 'Biomedical Engineer',
   },
 ]
