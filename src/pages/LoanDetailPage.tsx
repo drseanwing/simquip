@@ -1,8 +1,13 @@
-import { Button, makeStyles, Text, Title2, Title3, tokens } from '@fluentui/react-components'
+import { useCallback } from 'react'
+import { Button, makeStyles, Text, Title3, tokens } from '@fluentui/react-components'
 import { useNavigate, useParams } from 'react-router-dom'
 import { LoanStatus } from '../types'
+import type { Equipment, Person, Team } from '../types'
 import StatusBadge from '../components/StatusBadge'
-import { mockLoanTransfers, mockEquipment, mockTeams, mockPersons } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const useStyles = makeStyles({
   page: {
@@ -45,21 +50,24 @@ const useStyles = makeStyles({
   },
 })
 
-function getEquipmentDisplay(equipmentId: string): { name: string; code: string } {
-  const equip = mockEquipment.find((e) => e.equipmentId === equipmentId)
+function getEquipmentDisplay(
+  equipmentId: string,
+  equipment: Equipment[],
+): { name: string; code: string } {
+  const equip = equipment.find((e) => e.equipmentId === equipmentId)
   return {
     name: equip?.name ?? 'Unknown Equipment',
     code: equip?.equipmentCode ?? 'N/A',
   }
 }
 
-function getTeamName(teamId: string): string {
-  const team = mockTeams.find((t) => t.teamId === teamId)
+function getTeamName(teamId: string, teams: Team[]): string {
+  const team = teams.find((t) => t.teamId === teamId)
   return team?.name ?? 'Unknown Team'
 }
 
-function getPersonName(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonName(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.displayName ?? 'Unknown'
 }
 
@@ -67,44 +75,58 @@ export default function LoanDetailPage() {
   const styles = useStyles()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { loanTransferService, equipmentService, teamService, personService } = useServices()
 
-  if (!id) {
-    return <Text>Invalid URL</Text>
+  const fetcher = useCallback(
+    async () => {
+      if (!id) throw new Error('No loan ID')
+      const [loan, equipmentResult, teamsResult, personsResult] = await Promise.all([
+        loanTransferService.getById(id),
+        equipmentService.getAll({ top: 5000 }),
+        teamService.getAll({ top: 500 }),
+        personService.getAll({ top: 500 }),
+      ])
+      return {
+        loan,
+        equipment: equipmentResult.data,
+        teams: teamsResult.data,
+        persons: personsResult.data,
+      }
+    },
+    [id, loanTransferService, equipmentService, teamService, personService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
+  if (!id) return <Text>Invalid URL</Text>
+  if (loading) return <LoadingState />
+  if (error || !data) {
+    return <ErrorState message={error ?? 'Failed to load loan'} onRetry={reload} />
   }
 
-  const loan = mockLoanTransfers.find((l) => l.loanTransferId === id)
-
-  if (!loan) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.header}>
-          <Button appearance="subtle" onClick={() => void navigate('/loans')}>
-            Back
-          </Button>
-          <Title2 as="h1">Loan Not Found</Title2>
-        </div>
-        <Text>No loan found with ID: {id}</Text>
-      </div>
-    )
-  }
-
-  const equipment = getEquipmentDisplay(loan.equipmentId)
+  const { loan, equipment, teams, persons } = data
+  const equipDisplay = getEquipmentDisplay(loan.equipmentId, equipment)
 
   const handleBack = () => {
     void navigate('/loans')
   }
 
   const handleActivate = () => {
-    // Mock: in a real app this would call a service
-    void navigate('/loans')
+    void loanTransferService
+      .update(id, { ...loan, status: LoanStatus.Active })
+      .then(() => navigate('/loans'))
   }
 
   const handleReturn = () => {
-    void navigate('/loans')
+    void loanTransferService
+      .update(id, { ...loan, status: LoanStatus.Returned })
+      .then(() => navigate('/loans'))
   }
 
   const handleCancel = () => {
-    void navigate('/loans')
+    void loanTransferService
+      .update(id, { ...loan, status: LoanStatus.Cancelled })
+      .then(() => navigate('/loans'))
   }
 
   const isDraft = loan.status === LoanStatus.Draft
@@ -119,8 +141,8 @@ export default function LoanDetailPage() {
       </div>
 
       <div className={styles.titleRow}>
-        <Title3 as="h1">{equipment.name}</Title3>
-        <Text>({equipment.code})</Text>
+        <Title3 as="h1">{equipDisplay.name}</Title3>
+        <Text>({equipDisplay.code})</Text>
         <StatusBadge status={loan.status} />
         <div className={styles.headerActions}>
           {isDraft && (
@@ -149,17 +171,17 @@ export default function LoanDetailPage() {
       <div className={styles.infoGrid}>
         <Text className={styles.label}>Equipment</Text>
         <Text>
-          {equipment.name} ({equipment.code})
+          {equipDisplay.name} ({equipDisplay.code})
         </Text>
 
         <Text className={styles.label}>Status</Text>
         <StatusBadge status={loan.status} />
 
         <Text className={styles.label}>Origin Team</Text>
-        <Text>{getTeamName(loan.originTeamId)}</Text>
+        <Text>{getTeamName(loan.originTeamId, teams)}</Text>
 
         <Text className={styles.label}>Recipient Team</Text>
-        <Text>{getTeamName(loan.recipientTeamId)}</Text>
+        <Text>{getTeamName(loan.recipientTeamId, teams)}</Text>
 
         <Text className={styles.label}>Start Date</Text>
         <Text>{loan.startDate}</Text>
@@ -171,7 +193,7 @@ export default function LoanDetailPage() {
         <Text>{loan.reasonCode}</Text>
 
         <Text className={styles.label}>Approver</Text>
-        <Text>{getPersonName(loan.approverPersonId)}</Text>
+        <Text>{getPersonName(loan.approverPersonId, persons)}</Text>
 
         <Text className={styles.label}>Internal Transfer</Text>
         <Text>{loan.isInternalTransfer ? 'Yes' : 'No'}</Text>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, useCallback } from 'react'
 import {
   Button,
   makeStyles,
@@ -19,19 +19,16 @@ import {
   parseFlowChartJson,
   serializeFlowChart,
 } from '../types'
-import type { ContentsItem, EquipmentMedia, FlowChartData } from '../types'
+import type { ContentsItem, EquipmentMedia, FlowChartData, Person, Team, Location } from '../types'
 import type { SelectTabData, SelectTabEvent } from '@fluentui/react-components'
 import StatusBadge from '../components/StatusBadge'
 import ImageGallery from '../components/equipment/ImageGallery'
 import ContentsChecklist from '../components/equipment/ContentsChecklist'
 import MediaManager from '../components/equipment/MediaManager'
-import {
-  mockEquipment,
-  mockEquipmentMedia,
-  mockTeams,
-  mockPersons,
-  mockLocations,
-} from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const FlowChartViewer = lazy(() => import('../components/equipment/FlowChartViewer'))
 const FlowChartEditor = lazy(() => import('../components/equipment/FlowChartEditor'))
@@ -116,25 +113,27 @@ function getOwnerDisplay(
   ownerType: string,
   ownerTeamId: string | null,
   ownerPersonId: string | null,
+  teams: Team[],
+  persons: Person[],
 ): string {
   if (ownerType === OwnerType.Team && ownerTeamId) {
-    const team = mockTeams.find((t) => t.teamId === ownerTeamId)
+    const team = teams.find((t) => t.teamId === ownerTeamId)
     return team ? `${team.name} (Team)` : 'Unknown Team'
   }
   if (ownerType === OwnerType.Person && ownerPersonId) {
-    const person = mockPersons.find((p) => p.personId === ownerPersonId)
+    const person = persons.find((p) => p.personId === ownerPersonId)
     return person ? `${person.displayName} (Person)` : 'Unknown Person'
   }
   return 'Unassigned'
 }
 
-function getPersonName(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonName(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.displayName ?? 'Unknown'
 }
 
-function getLocationName(locationId: string): string {
-  const loc = mockLocations.find((l) => l.locationId === locationId)
+function getLocationName(locationId: string, locations: Location[]): string {
+  const loc = locations.find((l) => l.locationId === locationId)
   return loc?.name ?? 'Unknown'
 }
 
@@ -142,21 +141,46 @@ export default function EquipmentDetailPage() {
   const styles = useStyles()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const {
+    equipmentService,
+    equipmentMediaService,
+    teamService,
+    personService,
+    locationService,
+  } = useServices()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
   const [flowchartEditing, setFlowchartEditing] = useState(false)
 
-  // Local state for mock data mutations
   const [contentsOverride, setContentsOverride] = useState<string | null>(null)
   const [flowchartOverride, setFlowchartOverride] = useState<string | null>(null)
   const [mediaOverride, setMediaOverride] = useState<EquipmentMedia[] | null>(null)
 
-  if (!id) {
-    return <Text>Invalid URL</Text>
-  }
+  const fetcher = useCallback(async () => {
+    if (!id) throw new Error('Invalid URL')
+    const [equipment, allEquipment, media, teams, persons, locations] = await Promise.all([
+      equipmentService.getById(id),
+      equipmentService.getAll({ top: 5000 }),
+      equipmentMediaService.getAll({ top: 500, filter: `equipmentId eq '${id}'` }),
+      teamService.getAll({ top: 500 }),
+      personService.getAll({ top: 500 }),
+      locationService.getAll({ top: 500 }),
+    ])
+    const children = allEquipment.data.filter((e) => e.parentEquipmentId === id)
+    return {
+      equipment,
+      children,
+      media: media.data,
+      teams: teams.data,
+      persons: persons.data,
+      locations: locations.data,
+    }
+  }, [id, equipmentService, equipmentMediaService, teamService, personService, locationService])
 
-  const equipment = mockEquipment.find((e) => e.equipmentId === id)
+  const { data, loading, error, reload } = useAsyncData(fetcher, [id])
 
-  if (!equipment) {
+  if (!id) return <Text>Invalid URL</Text>
+  if (loading) return <LoadingState />
+  if (error || !data) {
     return (
       <div className={styles.page}>
         <div className={styles.header}>
@@ -165,24 +189,23 @@ export default function EquipmentDetailPage() {
           </Button>
           <Title3 as="h1">Equipment Not Found</Title3>
         </div>
-        <Text>No equipment found with ID: {id}</Text>
+        <ErrorState message={error ?? 'Equipment not found'} onRetry={reload} />
       </div>
     )
   }
 
-  const children = mockEquipment.filter((e) => e.parentEquipmentId === equipment.equipmentId)
+  const { equipment, children } = data
 
-  // Resolve current data (with possible local overrides)
   const contentsJson = contentsOverride ?? equipment.contentsListJson
   const contentsItems = parseContentsJson(contentsJson)
   const flowchartJson = flowchartOverride ?? equipment.quickStartFlowChartJson
   const flowchartData = parseFlowChartJson(flowchartJson)
 
-  const equipmentImages = (mediaOverride ?? mockEquipmentMedia)
+  const equipmentImages = (mediaOverride ?? data.media)
     .filter((m) => m.equipmentId === equipment.equipmentId && m.mediaType === MediaType.Image)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
-  const equipmentMedia = (mediaOverride ?? mockEquipmentMedia)
+  const equipmentMedia = (mediaOverride ?? data.media)
     .filter((m) => m.equipmentId === equipment.equipmentId)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
@@ -199,20 +222,20 @@ export default function EquipmentDetailPage() {
   }
 
   const handleContentsSave = (items: ContentsItem[]) => {
-    setContentsOverride(serializeContents(items))
+    const json = serializeContents(items)
+    setContentsOverride(json)
+    void equipmentService.update(id, { contentsListJson: json })
   }
 
-  const handleFlowchartSave = (data: FlowChartData) => {
-    setFlowchartOverride(serializeFlowChart(data))
+  const handleFlowchartSave = (flowData: FlowChartData) => {
+    const json = serializeFlowChart(flowData)
+    setFlowchartOverride(json)
     setFlowchartEditing(false)
+    void equipmentService.update(id, { quickStartFlowChartJson: json })
   }
 
   const handleMediaChange = (media: EquipmentMedia[]) => {
-    // Merge: keep non-equipment media, replace equipment media
-    const otherMedia = (mediaOverride ?? mockEquipmentMedia).filter(
-      (m) => m.equipmentId !== equipment.equipmentId,
-    )
-    setMediaOverride([...otherMedia, ...media])
+    setMediaOverride(media)
   }
 
   const renderTabContent = () => {
@@ -227,12 +250,14 @@ export default function EquipmentDetailPage() {
                   equipment.ownerType,
                   equipment.ownerTeamId,
                   equipment.ownerPersonId,
+                  data.teams,
+                  data.persons,
                 )}
               </Text>
               <Text className={styles.label}>Contact Person</Text>
-              <Text>{getPersonName(equipment.contactPersonId)}</Text>
+              <Text>{getPersonName(equipment.contactPersonId, data.persons)}</Text>
               <Text className={styles.label}>Home Location</Text>
-              <Text>{getLocationName(equipment.homeLocationId)}</Text>
+              <Text>{getLocationName(equipment.homeLocationId, data.locations)}</Text>
               <Text className={styles.label}>Description</Text>
               <Text>{equipment.description || 'No description.'}</Text>
             </div>

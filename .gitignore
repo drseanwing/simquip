@@ -25,3 +25,7 @@ dist-ssr
 
 # Power Platform
 .power/
+
+# Dataverse solution build artifacts
+dataverse/solution_output/
+dataverse/*.zip

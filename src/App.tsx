@@ -18,6 +18,7 @@ const TeamEditPage = lazy(() => import('./pages/TeamEditPage'))
 const LoansPage = lazy(() => import('./pages/LoansPage'))
 const LoanDetailPage = lazy(() => import('./pages/LoanDetailPage'))
 const LoanCreatePage = lazy(() => import('./pages/LoanCreatePage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="loans" element={<LoansPage />} />
             <Route path="loans/new" element={<LoanCreatePage />} />
             <Route path="loans/:id" element={<LoanDetailPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </Suspense>

@@ -15,6 +15,7 @@ const navItems = [
   { path: '/people', label: 'People' },
   { path: '/teams', label: 'Teams' },
   { path: '/loans', label: 'Loans' },
+  { path: '/settings', label: 'Settings' },
 ]
 
 const useStyles = makeStyles({
@@ -78,6 +79,7 @@ function resolveSelectedTab(pathname: string): string {
   if (pathname.startsWith('/people')) return '/people'
   if (pathname.startsWith('/teams')) return '/teams'
   if (pathname.startsWith('/loans')) return '/loans'
+  if (pathname.startsWith('/settings')) return '/settings'
   return '/'
 }
 

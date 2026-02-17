@@ -12,8 +12,11 @@ import {
 } from '@fluentui/react-components'
 import { useNavigate, useParams } from 'react-router-dom'
 import { validateTeam } from '../services/validators'
-import { mockPersons, mockLocations, mockTeams } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 import type { Team } from '../types'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const useStyles = makeStyles({
   page: {
@@ -55,14 +58,24 @@ export default function TeamEditPage() {
   const styles = useStyles()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { teamService, personService, locationService } = useServices()
 
-  if (!id) {
-    return <Text>Invalid URL</Text>
-  }
+  const { data, loading, error, reload } = useAsyncData(
+    async () => {
+      if (!id) throw new Error('Invalid URL')
+      const [existing, persons, locations] = await Promise.all([
+        teamService.getById(id),
+        personService.getAll({ top: 500 }),
+        locationService.getAll({ top: 500 }),
+      ])
+      return { existing, persons: persons.data, locations: locations.data }
+    },
+    [id],
+  )
 
-  const existing = mockTeams.find((t) => t.teamId === id)
-
-  if (!existing) {
+  if (!id) return <Text>Invalid URL</Text>
+  if (loading) return <LoadingState />
+  if (error || !data) {
     return (
       <div className={styles.page}>
         <div className={styles.header}>
@@ -71,15 +84,32 @@ export default function TeamEditPage() {
           </Button>
           <Title2 as="h1">Team Not Found</Title2>
         </div>
-        <Text>No team found with ID: {id}</Text>
+        <ErrorState message={error ?? 'Team not found'} onRetry={reload} />
       </div>
     )
   }
 
-  return <TeamEditForm existing={existing} />
+  return (
+    <TeamEditForm
+      existing={data.existing}
+      persons={data.persons}
+      locations={data.locations}
+      teamService={teamService}
+    />
+  )
 }
 
-function TeamEditForm({ existing }: { existing: Team }) {
+function TeamEditForm({
+  existing,
+  persons,
+  locations,
+  teamService,
+}: {
+  existing: Team
+  persons: { personId: string; displayName: string; active: boolean }[]
+  locations: { locationId: string; name: string }[]
+  teamService: { update: (id: string, item: Partial<Team>) => Promise<Team> }
+}) {
   const styles = useStyles()
   const navigate = useNavigate()
 
@@ -90,10 +120,11 @@ function TeamEditForm({ existing }: { existing: Team }) {
   const [active, setActive] = useState(existing.active)
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const activePersons = mockPersons.filter((p) => p.active)
+  const activePersons = persons.filter((p) => p.active)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const team: Partial<Team> = {
       name: name.trim(),
       teamCode: teamCode.trim(),
@@ -109,16 +140,17 @@ function TeamEditForm({ existing }: { existing: Team }) {
       return
     }
 
-    const index = mockTeams.findIndex((t) => t.teamId === existing.teamId)
-    if (index !== -1) {
-      mockTeams[index] = { ...mockTeams[index], ...team } as Team
+    setSaving(true)
+    try {
+      await teamService.update(existing.teamId, team)
+      setErrors([])
+      setShowSuccess(true)
+      setTimeout(() => {
+        void navigate(`/teams/${existing.teamId}`)
+      }, 1000)
+    } catch {
+      setSaving(false)
     }
-
-    setErrors([])
-    setShowSuccess(true)
-    setTimeout(() => {
-      void navigate(`/teams/${existing.teamId}`)
-    }, 1000)
   }
 
   const handleCancel = () => {
@@ -128,7 +160,7 @@ function TeamEditForm({ existing }: { existing: Team }) {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <Button appearance="subtle" onClick={handleCancel}>
+        <Button appearance="subtle" onClick={handleCancel} disabled={saving}>
           Back
         </Button>
         <Title2 as="h1">Edit Team</Title2>
@@ -172,7 +204,7 @@ function TeamEditForm({ existing }: { existing: Team }) {
         <Field label="Main Location">
           <Select value={mainLocationId} onChange={(_e, data) => setMainLocationId(data.value)}>
             <option value="">-- Select a location --</option>
-            {mockLocations.map((loc) => (
+            {locations.map((loc) => (
               <option key={loc.locationId} value={loc.locationId}>
                 {loc.name}
               </option>
@@ -185,10 +217,10 @@ function TeamEditForm({ existing }: { existing: Team }) {
         </Field>
 
         <div className={styles.actions}>
-          <Button appearance="primary" onClick={handleSave}>
-            Save
+          <Button appearance="primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
           </Button>
-          <Button appearance="secondary" onClick={handleCancel}>
+          <Button appearance="secondary" onClick={handleCancel} disabled={saving}>
             Cancel
           </Button>
         </div>

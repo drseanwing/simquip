@@ -12,8 +12,11 @@ import {
 } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
 import { validateTeam } from '../services/validators'
-import { mockPersons, mockLocations, mockTeams } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 import type { Team } from '../types'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const useStyles = makeStyles({
   page: {
@@ -54,6 +57,18 @@ function getFieldError(
 export default function TeamCreatePage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { teamService, personService, locationService } = useServices()
+
+  const { data: refData, loading, error, reload } = useAsyncData(
+    async () => {
+      const [persons, locations] = await Promise.all([
+        personService.getAll({ top: 500 }),
+        locationService.getAll({ top: 500 }),
+      ])
+      return { persons: persons.data, locations: locations.data }
+    },
+    [],
+  )
 
   const [name, setName] = useState('')
   const [teamCode, setTeamCode] = useState('')
@@ -62,10 +77,14 @@ export default function TeamCreatePage() {
   const [active, setActive] = useState(true)
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const activePersons = mockPersons.filter((p) => p.active)
+  if (loading) return <LoadingState />
+  if (error || !refData) return <ErrorState message={error ?? 'Failed to load'} onRetry={reload} />
 
-  const handleSave = () => {
+  const activePersons = refData.persons.filter((p) => p.active)
+
+  const handleSave = async () => {
     const team: Partial<Team> = {
       name: name.trim(),
       teamCode: teamCode.trim(),
@@ -81,17 +100,17 @@ export default function TeamCreatePage() {
       return
     }
 
-    const newTeam = {
-      ...team,
-      teamId: crypto.randomUUID(),
-    } as Team
-    mockTeams.push(newTeam)
-
-    setErrors([])
-    setShowSuccess(true)
-    setTimeout(() => {
-      void navigate('/teams')
-    }, 1000)
+    setSaving(true)
+    try {
+      await teamService.create(team)
+      setErrors([])
+      setShowSuccess(true)
+      setTimeout(() => {
+        void navigate('/teams')
+      }, 1000)
+    } catch {
+      setSaving(false)
+    }
   }
 
   const handleCancel = () => {
@@ -101,7 +120,7 @@ export default function TeamCreatePage() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <Button appearance="subtle" onClick={handleCancel}>
+        <Button appearance="subtle" onClick={handleCancel} disabled={saving}>
           Back
         </Button>
         <Title2 as="h1">Create Team</Title2>
@@ -145,7 +164,7 @@ export default function TeamCreatePage() {
         <Field label="Main Location">
           <Select value={mainLocationId} onChange={(_e, data) => setMainLocationId(data.value)}>
             <option value="">-- Select a location --</option>
-            {mockLocations.map((loc) => (
+            {refData.locations.map((loc) => (
               <option key={loc.locationId} value={loc.locationId}>
                 {loc.name}
               </option>
@@ -158,10 +177,10 @@ export default function TeamCreatePage() {
         </Field>
 
         <div className={styles.actions}>
-          <Button appearance="primary" onClick={handleSave}>
-            Save
+          <Button appearance="primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
           </Button>
-          <Button appearance="secondary" onClick={handleCancel}>
+          <Button appearance="secondary" onClick={handleCancel} disabled={saving}>
             Cancel
           </Button>
         </div>

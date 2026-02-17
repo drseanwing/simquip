@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Badge,
   Button,
@@ -17,9 +17,12 @@ import {
   Title2,
   tokens,
 } from '@fluentui/react-components'
-import { mockPersons, mockTeams } from '../services/mockData'
 import { validatePerson } from '../services/validators'
-import type { Person } from '../types'
+import type { Person, Team } from '../types'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const PAGE_SIZE = 25
 
@@ -106,9 +109,9 @@ const columns = [
   { key: 'active', label: 'Active' },
 ]
 
-function getTeamName(teamId: string | null): string {
+function getTeamName(teamId: string | null, teams: Team[]): string {
   if (!teamId) return 'None'
-  const team = mockTeams.find((t) => t.teamId === teamId)
+  const team = teams.find((t) => t.teamId === teamId)
   return team?.name ?? 'Unknown'
 }
 
@@ -122,6 +125,7 @@ function getFieldError(
 
 export default function PeoplePage() {
   const styles = useStyles()
+  const { personService, teamService } = useServices()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>(ACTIVE_ALL)
@@ -137,11 +141,39 @@ export default function PeoplePage() {
   const [active, setActive] = useState(true)
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const activeTeams = mockTeams.filter((t) => t.active)
+  // Local state for mutation support (avoids full-page reload flash)
+  const [localPersons, setLocalPersons] = useState<Person[]>([])
+  const [localTeams, setLocalTeams] = useState<Team[]>([])
+
+  const fetcher = useCallback(
+    async () => {
+      const [personsResult, teamsResult] = await Promise.all([
+        personService.getAll({ top: 5000 }),
+        teamService.getAll({ top: 500 }),
+      ])
+      return {
+        persons: personsResult.data,
+        teams: teamsResult.data,
+      }
+    },
+    [personService, teamService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
+  useEffect(() => {
+    if (data) {
+      setLocalPersons(data.persons)
+      setLocalTeams(data.teams)
+    }
+  }, [data])
+
+  const activeTeams = useMemo(() => localTeams.filter((t) => t.active), [localTeams])
 
   const filteredPeople = useMemo(() => {
-    let result = [...mockPersons]
+    let result = [...localPersons]
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase()
@@ -158,7 +190,11 @@ export default function PeoplePage() {
     }
 
     return result
-  }, [searchQuery, activeFilter])
+  }, [localPersons, searchQuery, activeFilter])
+
+  if (loading && localPersons.length === 0) return <LoadingState />
+  if (error && localPersons.length === 0)
+    return <ErrorState message={error ?? 'Failed to load people'} onRetry={reload} />
 
   const totalItems = filteredPeople.length
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
@@ -229,24 +265,30 @@ export default function PeoplePage() {
       return
     }
 
-    if (isCreating) {
-      const newPerson: Person = {
-        ...(person as Person),
-        personId: crypto.randomUUID(),
-      }
-      mockPersons.push(newPerson)
-      setSelectedPerson(newPerson)
-    } else if (selectedPerson) {
-      const index = mockPersons.findIndex((p) => p.personId === selectedPerson.personId)
-      if (index !== -1) {
-        mockPersons[index] = { ...mockPersons[index], ...person } as Person
-        setSelectedPerson(mockPersons[index])
-      }
-    }
+    setSaving(true)
+    const saveOp = isCreating
+      ? personService.create(person as Person)
+      : personService.update(selectedPerson!.personId, person as Person)
 
-    setIsCreating(false)
-    setErrors([])
-    setShowSuccess(true)
+    void saveOp
+      .then((saved) => {
+        if (isCreating) {
+          setLocalPersons((prev) => [...prev, saved])
+        } else {
+          setLocalPersons((prev) =>
+            prev.map((p) => (p.personId === saved.personId ? saved : p)),
+          )
+        }
+        setSelectedPerson(saved)
+        setIsCreating(false)
+        setErrors([])
+        setShowSuccess(true)
+        setSaving(false)
+      })
+      .catch((err: unknown) => {
+        setErrors([{ message: err instanceof Error ? err.message : 'Save failed' }])
+        setSaving(false)
+      })
   }
 
   const showForm = isCreating || selectedPerson !== null
@@ -315,7 +357,7 @@ export default function PeoplePage() {
                       <TableCell>{person.displayName}</TableCell>
                       <TableCell>{person.email}</TableCell>
                       <TableCell>{person.phone}</TableCell>
-                      <TableCell>{getTeamName(person.teamId)}</TableCell>
+                      <TableCell>{getTeamName(person.teamId, localTeams)}</TableCell>
                       <TableCell>
                         <Badge appearance="filled" color={person.active ? 'success' : 'danger'}>
                           {person.active ? 'Active' : 'Inactive'}
@@ -402,8 +444,8 @@ export default function PeoplePage() {
             </Field>
 
             <div className={styles.formActions}>
-              <Button appearance="primary" onClick={handleSave}>
-                {isCreating ? 'Create' : 'Save'}
+              <Button appearance="primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
               </Button>
               <Button appearance="secondary" onClick={handleCancel}>
                 Cancel

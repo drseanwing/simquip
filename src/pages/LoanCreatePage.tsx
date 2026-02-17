@@ -12,9 +12,12 @@ import {
 } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
 import { LoanReason, LoanStatus, OwnerType } from '../types'
-import type { LoanTransfer } from '../types'
+import type { Equipment, LoanTransfer, Person } from '../types'
 import { validateLoanTransfer } from '../services/validators'
-import { mockEquipment, mockTeams, mockPersons, mockLoanTransfers } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const useStyles = makeStyles({
   page: {
@@ -52,14 +55,12 @@ function getFieldError(
   return err?.message
 }
 
-/**
- * Computes the default origin team for a given equipment item per spec 2.4:
- * - If owner is a team, default to that team.
- * - If owner is a person with exactly one active team membership, default to that team.
- * - Otherwise return empty (manual selection required).
- */
-function getDefaultOriginTeamId(equipmentId: string): string {
-  const equip = mockEquipment.find((e) => e.equipmentId === equipmentId)
+function getDefaultOriginTeamId(
+  equipmentId: string,
+  equipment: Equipment[],
+  persons: Person[],
+): string {
+  const equip = equipment.find((e) => e.equipmentId === equipmentId)
   if (!equip) return ''
 
   if (equip.ownerType === OwnerType.Team && equip.ownerTeamId) {
@@ -67,9 +68,8 @@ function getDefaultOriginTeamId(equipmentId: string): string {
   }
 
   if (equip.ownerType === OwnerType.Person && equip.ownerPersonId) {
-    const ownerPerson = mockPersons.find((p) => p.personId === equip.ownerPersonId)
+    const ownerPerson = persons.find((p) => p.personId === equip.ownerPersonId)
     if (ownerPerson?.teamId) {
-      // Person has exactly one team via teamId
       return ownerPerson.teamId
     }
   }
@@ -80,6 +80,19 @@ function getDefaultOriginTeamId(equipmentId: string): string {
 export default function LoanCreatePage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { loanTransferService, equipmentService, teamService, personService } = useServices()
+
+  const { data: refData, loading, error, reload } = useAsyncData(
+    async () => {
+      const [equipment, teams, persons] = await Promise.all([
+        equipmentService.getAll({ top: 500 }),
+        teamService.getAll({ top: 500 }),
+        personService.getAll({ top: 500 }),
+      ])
+      return { equipment: equipment.data, teams: teams.data, persons: persons.data }
+    },
+    [],
+  )
 
   const [equipmentId, setEquipmentId] = useState('')
   const [originTeamId, setOriginTeamId] = useState('')
@@ -92,20 +105,28 @@ export default function LoanCreatePage() {
   const [notes, setNotes] = useState('')
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const activeEquipment = mockEquipment.filter((e) => e.active)
-  const activeTeams = mockTeams.filter((t) => t.active)
-
-  // Filter approver persons to those belonging to the recipient team
+  const activeEquipment = useMemo(
+    () => refData?.equipment.filter((e) => e.active) ?? [],
+    [refData],
+  )
+  const activeTeams = useMemo(
+    () => refData?.teams.filter((t) => t.active) ?? [],
+    [refData],
+  )
   const approverPersons = useMemo(() => {
-    if (!recipientTeamId) return []
-    return mockPersons.filter((p) => p.active && p.teamId === recipientTeamId)
-  }, [recipientTeamId])
+    if (!recipientTeamId || !refData) return []
+    return refData.persons.filter((p) => p.active && p.teamId === recipientTeamId)
+  }, [recipientTeamId, refData])
+
+  if (loading) return <LoadingState />
+  if (error || !refData) return <ErrorState message={error ?? 'Failed to load'} onRetry={reload} />
 
   const handleEquipmentChange = (value: string) => {
     setEquipmentId(value)
     if (value) {
-      const defaultOrigin = getDefaultOriginTeamId(value)
+      const defaultOrigin = getDefaultOriginTeamId(value, refData.equipment, refData.persons)
       setOriginTeamId(defaultOrigin)
     } else {
       setOriginTeamId('')
@@ -114,9 +135,7 @@ export default function LoanCreatePage() {
 
   const handleRecipientTeamChange = (value: string) => {
     setRecipientTeamId(value)
-    // Reset approver when recipient team changes
     setApproverPersonId('')
-    // Auto-set internal transfer flag
     if (value && value === originTeamId) {
       setIsInternalTransfer(true)
     } else {
@@ -126,7 +145,6 @@ export default function LoanCreatePage() {
 
   const handleOriginTeamChange = (value: string) => {
     setOriginTeamId(value)
-    // Auto-set internal transfer flag
     if (value && value === recipientTeamId) {
       setIsInternalTransfer(true)
     } else {
@@ -134,7 +152,7 @@ export default function LoanCreatePage() {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const loan: Partial<LoanTransfer> = {
       equipmentId: equipmentId || undefined,
       startDate: startDate || undefined,
@@ -155,17 +173,17 @@ export default function LoanCreatePage() {
       return
     }
 
-    const newLoan = {
-      ...loan,
-      loanTransferId: crypto.randomUUID(),
-    } as LoanTransfer
-    mockLoanTransfers.push(newLoan)
-
-    setErrors([])
-    setShowSuccess(true)
-    setTimeout(() => {
-      void navigate('/loans')
-    }, 1000)
+    setSaving(true)
+    try {
+      await loanTransferService.create(loan)
+      setErrors([])
+      setShowSuccess(true)
+      setTimeout(() => {
+        void navigate('/loans')
+      }, 1000)
+    } catch {
+      setSaving(false)
+    }
   }
 
   const handleCancel = () => {
@@ -175,7 +193,7 @@ export default function LoanCreatePage() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <Button appearance="subtle" onClick={handleCancel}>
+        <Button appearance="subtle" onClick={handleCancel} disabled={saving}>
           Back
         </Button>
         <Title2 as="h1">Create Loan / Transfer</Title2>
@@ -315,10 +333,10 @@ export default function LoanCreatePage() {
         </Field>
 
         <div className={styles.actions}>
-          <Button appearance="primary" onClick={handleSave}>
-            Save
+          <Button appearance="primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
           </Button>
-          <Button appearance="secondary" onClick={handleCancel}>
+          <Button appearance="secondary" onClick={handleCancel} disabled={saving}>
             Cancel
           </Button>
         </div>

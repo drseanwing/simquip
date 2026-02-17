@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Button,
   Input,
@@ -15,27 +15,30 @@ import {
   Text,
 } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
-import type { Equipment } from '../types'
+import type { Equipment, Location, Person, Team } from '../types'
 import { EquipmentStatus, OwnerType } from '../types'
 import StatusBadge from '../components/StatusBadge'
-import { mockEquipment, mockTeams, mockPersons, mockLocations } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const PAGE_SIZE = 25
 
-function getOwnerName(item: Equipment): string {
+function getOwnerName(item: Equipment, teams: Team[], persons: Person[]): string {
   if (item.ownerType === OwnerType.Team && item.ownerTeamId) {
-    const team = mockTeams.find((t) => t.teamId === item.ownerTeamId)
+    const team = teams.find((t) => t.teamId === item.ownerTeamId)
     return team ? team.name : 'Unknown Team'
   }
   if (item.ownerType === OwnerType.Person && item.ownerPersonId) {
-    const person = mockPersons.find((p) => p.personId === item.ownerPersonId)
+    const person = persons.find((p) => p.personId === item.ownerPersonId)
     return person ? person.displayName : 'Unknown Person'
   }
   return 'Unassigned'
 }
 
-function getLocationName(item: Equipment): string {
-  const loc = mockLocations.find((l) => l.locationId === item.homeLocationId)
+function getLocationName(item: Equipment, locations: Location[]): string {
+  const loc = locations.find((l) => l.locationId === item.homeLocationId)
   return loc?.name ?? 'Unknown Location'
 }
 
@@ -97,13 +100,35 @@ const STATUS_ALL = '__all__'
 export default function EquipmentListPage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { equipmentService, teamService, personService, locationService } = useServices()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(STATUS_ALL)
   const [currentPage, setCurrentPage] = useState(1)
 
+  const fetcher = useCallback(
+    async () => {
+      const [equipment, teams, persons, locations] = await Promise.all([
+        equipmentService.getAll({ top: 5000 }),
+        teamService.getAll({ top: 500 }),
+        personService.getAll({ top: 500 }),
+        locationService.getAll({ top: 500 }),
+      ])
+      return {
+        equipment: equipment.data,
+        teams: teams.data,
+        persons: persons.data,
+        locations: locations.data,
+      }
+    },
+    [equipmentService, teamService, personService, locationService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
   const filteredEquipment = useMemo(() => {
-    let result = [...mockEquipment]
+    if (!data) return []
+    let result = [...data.equipment]
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase()
@@ -119,7 +144,10 @@ export default function EquipmentListPage() {
     }
 
     return result
-  }, [searchQuery, statusFilter])
+  }, [data, searchQuery, statusFilter])
+
+  if (loading) return <LoadingState />
+  if (error || !data) return <ErrorState message={error ?? 'Failed to load equipment'} onRetry={reload} />
 
   const totalItems = filteredEquipment.length
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
@@ -209,8 +237,8 @@ export default function EquipmentListPage() {
                   <TableCell>
                     <StatusBadge status={item.status} />
                   </TableCell>
-                  <TableCell>{getOwnerName(item)}</TableCell>
-                  <TableCell>{getLocationName(item)}</TableCell>
+                  <TableCell>{getOwnerName(item, data.teams, data.persons)}</TableCell>
+                  <TableCell>{getLocationName(item, data.locations)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

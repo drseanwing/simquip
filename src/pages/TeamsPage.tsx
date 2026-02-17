@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Badge,
   Button,
@@ -16,7 +16,11 @@ import {
   tokens,
 } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
-import { mockTeams, mockPersons, mockLocations } from '../services/mockData'
+import type { Person, Location } from '../types'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const PAGE_SIZE = 25
 
@@ -75,26 +79,46 @@ const columns = [
 
 const ACTIVE_ALL = '__all__'
 
-function getPersonName(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonName(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.displayName ?? 'Unknown'
 }
 
-function getLocationName(locationId: string): string {
-  const loc = mockLocations.find((l) => l.locationId === locationId)
+function getLocationName(locationId: string, locations: Location[]): string {
+  const loc = locations.find((l) => l.locationId === locationId)
   return loc?.name ?? 'Unknown'
 }
 
 export default function TeamsPage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { teamService, personService, locationService } = useServices()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>(ACTIVE_ALL)
   const [currentPage, setCurrentPage] = useState(1)
 
+  const fetcher = useCallback(
+    async () => {
+      const [teams, persons, locations] = await Promise.all([
+        teamService.getAll({ top: 500 }),
+        personService.getAll({ top: 500 }),
+        locationService.getAll({ top: 500 }),
+      ])
+      return {
+        teams: teams.data,
+        persons: persons.data,
+        locations: locations.data,
+      }
+    },
+    [teamService, personService, locationService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
   const filteredTeams = useMemo(() => {
-    let result = mockTeams
+    if (!data) return []
+    let result = [...data.teams]
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase()
@@ -110,7 +134,11 @@ export default function TeamsPage() {
     }
 
     return result
-  }, [searchQuery, activeFilter])
+  }, [data, searchQuery, activeFilter])
+
+  if (loading) return <LoadingState />
+  if (error || !data)
+    return <ErrorState message={error ?? 'Failed to load teams'} onRetry={reload} />
 
   const totalItems = filteredTeams.length
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
@@ -199,8 +227,8 @@ export default function TeamsPage() {
                 >
                   <TableCell>{team.teamCode}</TableCell>
                   <TableCell>{team.name}</TableCell>
-                  <TableCell>{getPersonName(team.mainContactPersonId)}</TableCell>
-                  <TableCell>{getLocationName(team.mainLocationId)}</TableCell>
+                  <TableCell>{getPersonName(team.mainContactPersonId, data.persons)}</TableCell>
+                  <TableCell>{getLocationName(team.mainLocationId, data.locations)}</TableCell>
                   <TableCell>
                     <Badge appearance="filled" color={team.active ? 'success' : 'danger'}>
                       {team.active ? 'Active' : 'Inactive'}

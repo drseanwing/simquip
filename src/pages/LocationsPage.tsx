@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Button,
   Card,
@@ -12,15 +12,12 @@ import {
   tokens,
 } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
-import type { Building, Level, Location } from '../types'
-import {
-  mockBuildings,
-  mockLevels,
-  mockLocations,
-  mockEquipment,
-  mockPersons,
-} from '../services/mockData'
+import type { Building, Equipment, Level, Location, Person } from '../types'
 import { validateLocation } from '../services/validators'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -73,13 +70,6 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     gap: '2px',
   },
-  badge: {
-    backgroundColor: tokens.colorNeutralBackground3,
-    borderRadius: tokens.borderRadiusCircular,
-    paddingLeft: tokens.spacingHorizontalS,
-    paddingRight: tokens.spacingHorizontalS,
-    fontSize: tokens.fontSizeBase200,
-  },
   emptyState: {
     color: tokens.colorNeutralForeground3,
     fontStyle: 'italic',
@@ -124,13 +114,13 @@ const useStyles = makeStyles({
 
 // ── Helper Functions ──────────────────────────────────────────────────────────
 
-function getPersonName(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonName(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.displayName ?? 'Unknown'
 }
 
-function getEquipmentCountForLocation(locationId: string): number {
-  return mockEquipment.filter((e) => e.homeLocationId === locationId).length
+function getEquipmentCountForLocation(locationId: string, equipment: Equipment[]): number {
+  return equipment.filter((e) => e.homeLocationId === locationId).length
 }
 
 // ── Inline Forms ──────────────────────────────────────────────────────────────
@@ -234,18 +224,19 @@ function LevelForm({ buildingId, onSave, onCancel, existingLevels }: LevelFormPr
 interface LocationFormProps {
   buildingId: string
   levelId: string
+  persons: Person[]
   onSave: (location: Location) => void
   onCancel: () => void
 }
 
-function LocationForm({ buildingId, levelId, onSave, onCancel }: LocationFormProps) {
+function LocationForm({ buildingId, levelId, persons, onSave, onCancel }: LocationFormProps) {
   const styles = useStyles()
   const [name, setName] = useState('')
   const [contactPersonId, setContactPersonId] = useState('')
   const [description, setDescription] = useState('')
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
 
-  const activePersons = mockPersons.filter((p) => p.active)
+  const activePersons = persons.filter((p) => p.active)
 
   const getFieldError = (fieldName: string): string | undefined => {
     const err = errors.find((e) => e.field === fieldName)
@@ -324,11 +315,20 @@ function LocationForm({ buildingId, levelId, onSave, onCancel }: LocationFormPro
 export default function LocationsPage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const {
+    buildingService,
+    levelService,
+    locationService,
+    equipmentService,
+    personService,
+  } = useServices()
 
-  // Local state copies of mock data (allows inline add to reflect immediately)
-  const [buildings, setBuildings] = useState<Building[]>(mockBuildings)
-  const [levels, setLevels] = useState<Level[]>(mockLevels)
-  const [locations, setLocations] = useState<Location[]>(mockLocations)
+  // Local state (initialized from async data, updated optimistically on mutations)
+  const [buildings, setBuildings] = useState<Building[]>([])
+  const [levels, setLevels] = useState<Level[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
+  const [equipment, setEquipment] = useState<Equipment[]>([])
+  const [persons, setPersons] = useState<Person[]>([])
 
   // Selection state
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null)
@@ -339,6 +339,39 @@ export default function LocationsPage() {
   const [showBuildingForm, setShowBuildingForm] = useState(false)
   const [showLevelForm, setShowLevelForm] = useState(false)
   const [showLocationForm, setShowLocationForm] = useState(false)
+
+  const fetcher = useCallback(
+    async () => {
+      const [buildingsResult, levelsResult, locationsResult, equipmentResult, personsResult] =
+        await Promise.all([
+          buildingService.getAll({ top: 500 }),
+          levelService.getAll({ top: 500 }),
+          locationService.getAll({ top: 500 }),
+          equipmentService.getAll({ top: 5000 }),
+          personService.getAll({ top: 500 }),
+        ])
+      return {
+        buildings: buildingsResult.data,
+        levels: levelsResult.data,
+        locations: locationsResult.data,
+        equipment: equipmentResult.data,
+        persons: personsResult.data,
+      }
+    },
+    [buildingService, levelService, locationService, equipmentService, personService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
+  useEffect(() => {
+    if (data) {
+      setBuildings(data.buildings)
+      setLevels(data.levels)
+      setLocations(data.locations)
+      setEquipment(data.equipment)
+      setPersons(data.persons)
+    }
+  }, [data])
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -371,9 +404,9 @@ export default function LocationsPage() {
   const equipmentAtLocation = useMemo(
     () =>
       selectedLocationId
-        ? mockEquipment.filter((e) => e.homeLocationId === selectedLocationId)
+        ? equipment.filter((e) => e.homeLocationId === selectedLocationId)
         : [],
-    [selectedLocationId],
+    [selectedLocationId, equipment],
   )
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -396,20 +429,41 @@ export default function LocationsPage() {
     setSelectedLocationId(locationId)
   }, [])
 
-  const handleAddBuilding = useCallback((building: Building) => {
-    setBuildings((prev) => [...prev, building])
-    setShowBuildingForm(false)
-  }, [])
+  const handleAddBuilding = useCallback(
+    (building: Building) => {
+      void buildingService.create(building).then((created) => {
+        setBuildings((prev) => [...prev, created])
+        setShowBuildingForm(false)
+      })
+    },
+    [buildingService],
+  )
 
-  const handleAddLevel = useCallback((level: Level) => {
-    setLevels((prev) => [...prev, level])
-    setShowLevelForm(false)
-  }, [])
+  const handleAddLevel = useCallback(
+    (level: Level) => {
+      void levelService.create(level).then((created) => {
+        setLevels((prev) => [...prev, created])
+        setShowLevelForm(false)
+      })
+    },
+    [levelService],
+  )
 
-  const handleAddLocation = useCallback((location: Location) => {
-    setLocations((prev) => [...prev, location])
-    setShowLocationForm(false)
-  }, [])
+  const handleAddLocation = useCallback(
+    (location: Location) => {
+      void locationService.create(location).then((created) => {
+        setLocations((prev) => [...prev, created])
+        setShowLocationForm(false)
+      })
+    },
+    [locationService],
+  )
+
+  // ── Loading / Error ──────────────────────────────────────────────────────
+
+  if (loading && buildings.length === 0) return <LoadingState />
+  if (error && buildings.length === 0)
+    return <ErrorState message={error ?? 'Failed to load locations'} onRetry={reload} />
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -531,6 +585,7 @@ export default function LocationsPage() {
             <LocationForm
               buildingId={selectedBuildingId}
               levelId={selectedLevelId}
+              persons={persons}
               onSave={handleAddLocation}
               onCancel={() => setShowLocationForm(false)}
             />
@@ -543,7 +598,7 @@ export default function LocationsPage() {
           ) : (
             locationsForLevel.map((loc) => {
               const isSelected = loc.locationId === selectedLocationId
-              const equipCount = getEquipmentCountForLocation(loc.locationId)
+              const equipCount = getEquipmentCountForLocation(loc.locationId, equipment)
               return (
                 <div
                   key={loc.locationId}
@@ -585,7 +640,7 @@ export default function LocationsPage() {
             <Text className={styles.label}>Contact Person</Text>
             <Text>
               {selectedLocation.contactPersonId
-                ? getPersonName(selectedLocation.contactPersonId)
+                ? getPersonName(selectedLocation.contactPersonId, persons)
                 : 'Not assigned'}
             </Text>
             <Text className={styles.label}>Description</Text>

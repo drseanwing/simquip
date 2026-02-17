@@ -4,6 +4,7 @@ import { FluentProvider } from '@fluentui/react-components'
 import rediLightTheme from './theme'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import PowerProvider from './PowerProvider'
+import { ServiceProvider } from './contexts/ServiceContext'
 import App from './App'
 import './index.css'
 
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <PowerProvider>
         <FluentProvider theme={rediLightTheme}>
-          <App />
+          <ServiceProvider>
+            <App />
+          </ServiceProvider>
         </FluentProvider>
       </PowerProvider>
     </ErrorBoundary>

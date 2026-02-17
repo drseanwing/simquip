@@ -12,9 +12,8 @@ import {
   tokens,
 } from '@fluentui/react-components'
 import { EquipmentStatus, OwnerType } from '../types'
-import type { Equipment } from '../types'
+import type { Equipment, Location, Person, Team } from '../types'
 import { validateEquipment } from '../services/validators'
-import { mockTeams, mockPersons, mockLocations } from '../services/mockData'
 
 const useStyles = makeStyles({
   form: {
@@ -43,6 +42,9 @@ function getFieldError(
 
 export interface EquipmentFormProps {
   initialData?: Equipment
+  teams: Team[]
+  persons: Person[]
+  locations: Location[]
   onSave: (equipment: Partial<Equipment>) => void
   onCancel: () => void
   saveLabel?: string
@@ -50,6 +52,9 @@ export interface EquipmentFormProps {
 
 export default function EquipmentForm({
   initialData,
+  teams,
+  persons,
+  locations,
   onSave,
   onCancel,
   saveLabel = 'Save',
@@ -70,8 +75,8 @@ export default function EquipmentForm({
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
 
-  const activeTeams = mockTeams.filter((t) => t.active)
-  const activePersons = mockPersons.filter((p) => p.active)
+  const activeTeams = teams.filter((t) => t.active)
+  const activePersons = persons.filter((p) => p.active)
 
   const handleOwnerTypeChange = (value: string) => {
     const newOwnerType = value as OwnerType
@@ -86,7 +91,7 @@ export default function EquipmentForm({
   const handleOwnerTeamChange = (value: string) => {
     setOwnerTeamId(value)
     if (value) {
-      const team = mockTeams.find((t) => t.teamId === value)
+      const team = teams.find((t) => t.teamId === value)
       if (team && !homeLocationId) {
         setHomeLocationId(team.mainLocationId)
       }
@@ -106,6 +111,7 @@ export default function EquipmentForm({
       homeLocationId: homeLocationId || '',
       status,
       parentEquipmentId: initialData?.parentEquipmentId ?? null,
+      keyImageUrl: initialData?.keyImageUrl ?? '',
       quickStartFlowChartJson: initialData?.quickStartFlowChartJson ?? '{}',
       contentsListJson: initialData?.contentsListJson ?? '[]',
       active: initialData?.active ?? true,
@@ -223,7 +229,7 @@ export default function EquipmentForm({
         >
           <Select value={homeLocationId} onChange={(_e, data) => setHomeLocationId(data.value)}>
             <option value="">-- Select a location --</option>
-            {mockLocations.map((loc) => (
+            {locations.map((loc) => (
               <option key={loc.locationId} value={loc.locationId}>
                 {loc.name}
               </option>

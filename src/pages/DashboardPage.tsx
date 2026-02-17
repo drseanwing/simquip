@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { makeStyles, shorthands, Text } from '@fluentui/react-components'
 import {
   ArrowSwapRegular,
@@ -9,9 +9,12 @@ import {
 } from '@fluentui/react-icons'
 import { useNavigate } from 'react-router-dom'
 import { LoanStatus } from '../types'
-import type { LoanTransfer } from '../types'
+import type { Equipment, LoanTransfer, Person, Team } from '../types'
 import StatusBadge from '../components/StatusBadge'
-import { mockLoanTransfers, mockEquipment, mockTeams, mockPersons } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const useStyles = makeStyles({
   page: {
@@ -205,20 +208,20 @@ const useStyles = makeStyles({
   },
 })
 
-function getEquipmentName(equipmentId: string): string {
-  return mockEquipment.find((e) => e.equipmentId === equipmentId)?.name ?? 'Unknown'
+function getEquipmentName(equipmentId: string, equipment: Equipment[]): string {
+  return equipment.find((e) => e.equipmentId === equipmentId)?.name ?? 'Unknown'
 }
 
-function getEquipmentCode(equipmentId: string): string {
-  return mockEquipment.find((e) => e.equipmentId === equipmentId)?.equipmentCode ?? ''
+function getEquipmentCode(equipmentId: string, equipment: Equipment[]): string {
+  return equipment.find((e) => e.equipmentId === equipmentId)?.equipmentCode ?? ''
 }
 
-function getTeamName(teamId: string): string {
-  return mockTeams.find((t) => t.teamId === teamId)?.name ?? 'Unknown'
+function getTeamName(teamId: string, teams: Team[]): string {
+  return teams.find((t) => t.teamId === teamId)?.name ?? 'Unknown'
 }
 
-function getApproverName(personId: string): string {
-  return mockPersons.find((p) => p.personId === personId)?.displayName ?? 'Unknown'
+function getApproverName(personId: string, persons: Person[]): string {
+  return persons.find((p) => p.personId === personId)?.displayName ?? 'Unknown'
 }
 
 function formatDate(dateStr: string): string {
@@ -248,12 +251,40 @@ function getDueLabel(dueDate: string): { text: string; isOverdue: boolean } {
 export default function DashboardPage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { loanTransferService, equipmentService, teamService, personService } = useServices()
+
+  const fetcher = useCallback(
+    async () => {
+      const [loansResult, equipmentResult, teamsResult, personsResult] = await Promise.all([
+        loanTransferService.getAll({ top: 5000 }),
+        equipmentService.getAll({ top: 5000 }),
+        teamService.getAll({ top: 500 }),
+        personService.getAll({ top: 500 }),
+      ])
+      return {
+        loans: loansResult.data,
+        equipment: equipmentResult.data,
+        teams: teamsResult.data,
+        persons: personsResult.data,
+      }
+    },
+    [loanTransferService, equipmentService, teamService, personService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
 
   const activeLoans = useMemo(() => {
-    return mockLoanTransfers.filter(
+    if (!data) return []
+    return data.loans.filter(
       (loan) => loan.status === LoanStatus.Active || loan.status === LoanStatus.Overdue,
     )
-  }, [])
+  }, [data])
+
+  if (loading) return <LoadingState />
+  if (error || !data)
+    return <ErrorState message={error ?? 'Failed to load dashboard'} onRetry={reload} />
+
+  const { equipment, teams, persons } = data
 
   const handleCardClick = (loan: LoanTransfer) => {
     void navigate(`/loans/${loan.loanTransferId}`)
@@ -300,9 +331,11 @@ export default function DashboardPage() {
                 <div className={styles.cardBody}>
                   <div className={styles.cardTitleRow}>
                     <div>
-                      <h3 className={styles.equipmentName}>{getEquipmentName(loan.equipmentId)}</h3>
+                      <h3 className={styles.equipmentName}>
+                        {getEquipmentName(loan.equipmentId, equipment)}
+                      </h3>
                       <span className={styles.equipmentCode}>
-                        {getEquipmentCode(loan.equipmentId)}
+                        {getEquipmentCode(loan.equipmentId, equipment)}
                       </span>
                     </div>
                     <StatusBadge status={dueInfo.isOverdue ? LoanStatus.Overdue : loan.status} />
@@ -310,9 +343,13 @@ export default function DashboardPage() {
 
                   <div className={styles.teamsRow}>
                     <PeopleTeamRegular className={styles.teamIcon} />
-                    <span className={styles.teamName}>{getTeamName(loan.originTeamId)}</span>
+                    <span className={styles.teamName}>
+                      {getTeamName(loan.originTeamId, teams)}
+                    </span>
                     <ArrowRightRegular className={styles.arrowIcon} />
-                    <span className={styles.teamName}>{getTeamName(loan.recipientTeamId)}</span>
+                    <span className={styles.teamName}>
+                      {getTeamName(loan.recipientTeamId, teams)}
+                    </span>
                   </div>
 
                   <div className={styles.detailsGrid}>
@@ -349,7 +386,7 @@ export default function DashboardPage() {
                     <div className={styles.detailItem}>
                       <span className={styles.detailLabel}>Approved by</span>
                       <span className={styles.detailValue}>
-                        {getApproverName(loan.approverPersonId)}
+                        {getApproverName(loan.approverPersonId, persons)}
                       </span>
                     </div>
                   </div>

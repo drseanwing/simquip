@@ -2,7 +2,6 @@ type AppEnvironment = 'development' | 'test' | 'production'
 
 interface AppConfig {
   env: AppEnvironment
-  enableMockData: boolean
 }
 
 function getEnv(): AppEnvironment {
@@ -13,7 +12,6 @@ function getEnv(): AppEnvironment {
 
 export const config: AppConfig = {
   env: getEnv(),
-  enableMockData: import.meta.env.VITE_ENABLE_MOCK_DATA === 'true',
 }
 
 export function isDevelopment(): boolean {

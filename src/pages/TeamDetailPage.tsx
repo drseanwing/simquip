@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import {
   Badge,
   Button,
@@ -5,21 +6,17 @@ import {
   Tab,
   TabList,
   Text,
-  Title2,
   Title3,
   tokens,
 } from '@fluentui/react-components'
-import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  mockTeams,
-  mockPersons,
-  mockLocations,
-  mockTeamMembers,
-  mockEquipment,
-} from '../services/mockData'
 import { OwnerType } from '../types'
+import type { Equipment, Location, Person } from '../types'
 import StatusBadge from '../components/StatusBadge'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 import type { SelectTabData, SelectTabEvent } from '@fluentui/react-components'
 
 const useStyles = makeStyles({
@@ -89,18 +86,18 @@ const useStyles = makeStyles({
 
 type TabValue = 'details' | 'staff' | 'locations' | 'equipment'
 
-function getPersonName(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonName(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.displayName ?? 'Unknown'
 }
 
-function getPersonEmail(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonEmail(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.email ?? ''
 }
 
-function getLocationName(locationId: string): string {
-  const loc = mockLocations.find((l) => l.locationId === locationId)
+function getLocationName(locationId: string, locations: Location[]): string {
+  const loc = locations.find((l) => l.locationId === locationId)
   return loc?.name ?? 'Unknown'
 }
 
@@ -109,45 +106,57 @@ export default function TeamDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
+  const {
+    teamService,
+    personService,
+    locationService,
+    teamMemberService,
+    equipmentService,
+  } = useServices()
 
-  if (!id) {
-    return <Text>Invalid URL</Text>
-  }
-
-  const team = mockTeams.find((t) => t.teamId === id)
-
-  if (!team) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.header}>
-          <Button appearance="subtle" onClick={() => void navigate('/teams')}>
-            Back
-          </Button>
-          <Title2 as="h1">Team Not Found</Title2>
-        </div>
-        <Text>No team found with ID: {id}</Text>
-      </div>
-    )
-  }
-
-  const teamMembers = mockTeamMembers.filter((tm) => tm.teamId === team.teamId)
-
-  const teamEquipment = mockEquipment.filter(
-    (e) => e.ownerType === OwnerType.Team && e.ownerTeamId === team.teamId,
+  const fetcher = useCallback(
+    async () => {
+      if (!id) throw new Error('No team ID')
+      const [team, personsResult, locationsResult, teamMembersResult, equipmentResult] =
+        await Promise.all([
+          teamService.getById(id),
+          personService.getAll({ top: 500 }),
+          locationService.getAll({ top: 500 }),
+          teamMemberService.getAll({ top: 500 }),
+          equipmentService.getAll({ top: 5000 }),
+        ])
+      return {
+        team,
+        persons: personsResult.data,
+        locations: locationsResult.data,
+        teamMembers: teamMembersResult.data.filter((tm) => tm.teamId === id),
+        teamEquipment: equipmentResult.data.filter(
+          (e) => e.ownerType === OwnerType.Team && e.ownerTeamId === id,
+        ),
+      }
+    },
+    [id, teamService, personService, locationService, teamMemberService, equipmentService],
   )
 
-  // Gather unique location IDs: main location plus home locations of team-owned equipment
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
+  if (!id) return <Text>Invalid URL</Text>
+  if (loading) return <LoadingState />
+  if (error || !data) {
+    return <ErrorState message={error ?? 'Failed to load team'} onRetry={reload} />
+  }
+
+  const { team, persons, locations, teamMembers, teamEquipment } = data
+
   const teamLocationIds = new Set<string>()
   teamLocationIds.add(team.mainLocationId)
-  teamEquipment.forEach((e) => {
-    if (e.homeLocationId) {
-      teamLocationIds.add(e.homeLocationId)
-    }
+  teamEquipment.forEach((e: Equipment) => {
+    if (e.homeLocationId) teamLocationIds.add(e.homeLocationId)
   })
-  const teamLocations = mockLocations.filter((l) => teamLocationIds.has(l.locationId))
+  const teamLocations = locations.filter((l: Location) => teamLocationIds.has(l.locationId))
 
-  const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
-    setSelectedTab(data.value as TabValue)
+  const handleTabSelect = (_event: SelectTabEvent, tabData: SelectTabData) => {
+    setSelectedTab(tabData.value as TabValue)
   }
 
   const handleEdit = () => {
@@ -165,9 +174,9 @@ export default function TeamDetailPage() {
       <Text className={styles.label}>Name</Text>
       <Text>{team.name}</Text>
       <Text className={styles.label}>Main Contact</Text>
-      <Text>{getPersonName(team.mainContactPersonId)}</Text>
+      <Text>{getPersonName(team.mainContactPersonId, persons)}</Text>
       <Text className={styles.label}>Main Location</Text>
-      <Text>{getLocationName(team.mainLocationId)}</Text>
+      <Text>{getLocationName(team.mainLocationId, locations)}</Text>
       <Text className={styles.label}>Status</Text>
       <Badge appearance="filled" color={team.active ? 'success' : 'danger'}>
         {team.active ? 'Active' : 'Inactive'}
@@ -183,8 +192,8 @@ export default function TeamDetailPage() {
       <div className={styles.itemList}>
         {teamMembers.map((tm) => (
           <div key={tm.teamMemberId} className={styles.listItem}>
-            <Text weight="semibold">{getPersonName(tm.personId)}</Text>
-            <Text>{getPersonEmail(tm.personId)}</Text>
+            <Text weight="semibold">{getPersonName(tm.personId, persons)}</Text>
+            <Text>{getPersonEmail(tm.personId, persons)}</Text>
             <Text italic>{tm.role}</Text>
           </div>
         ))}

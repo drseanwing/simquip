@@ -1,13 +1,12 @@
+import { useCallback } from 'react'
 import { Button, makeStyles, Text, Title2, Title3, tokens } from '@fluentui/react-components'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  mockBuildings,
-  mockLevels,
-  mockLocations,
-  mockEquipment,
-  mockPersons,
-} from '../services/mockData'
+import type { Building, Equipment, Level, Person } from '../types'
 import StatusBadge from '../components/StatusBadge'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const useStyles = makeStyles({
   page: {
@@ -79,18 +78,18 @@ const useStyles = makeStyles({
   },
 })
 
-function getPersonName(personId: string): string {
-  const person = mockPersons.find((p) => p.personId === personId)
+function getPersonName(personId: string, persons: Person[]): string {
+  const person = persons.find((p) => p.personId === personId)
   return person?.displayName ?? 'Unknown'
 }
 
-function getBuildingName(buildingId: string): string {
-  const building = mockBuildings.find((b) => b.buildingId === buildingId)
+function getBuildingName(buildingId: string, buildings: Building[]): string {
+  const building = buildings.find((b) => b.buildingId === buildingId)
   return building?.name ?? 'Unknown'
 }
 
-function getLevelName(levelId: string): string {
-  const level = mockLevels.find((l) => l.levelId === levelId)
+function getLevelName(levelId: string, levels: Level[]): string {
+  const level = levels.find((l) => l.levelId === levelId)
   return level?.name ?? 'Unknown'
 }
 
@@ -98,37 +97,50 @@ export default function LocationDetailPage() {
   const styles = useStyles()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { locationService, buildingService, levelService, equipmentService, personService } =
+    useServices()
 
-  if (!id) {
-    return <Text>Invalid URL</Text>
+  const fetcher = useCallback(
+    async () => {
+      if (!id) throw new Error('No location ID')
+      const [location, buildingsResult, levelsResult, equipmentResult, personsResult] =
+        await Promise.all([
+          locationService.getById(id),
+          buildingService.getAll({ top: 500 }),
+          levelService.getAll({ top: 500 }),
+          equipmentService.getAll({ top: 5000 }),
+          personService.getAll({ top: 500 }),
+        ])
+      return {
+        location,
+        buildings: buildingsResult.data,
+        levels: levelsResult.data,
+        equipment: equipmentResult.data.filter(
+          (e: Equipment) => e.homeLocationId === id,
+        ),
+        persons: personsResult.data,
+      }
+    },
+    [id, locationService, buildingService, levelService, equipmentService, personService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
+  if (!id) return <Text>Invalid URL</Text>
+  if (loading) return <LoadingState />
+  if (error || !data) {
+    return <ErrorState message={error ?? 'Failed to load location'} onRetry={reload} />
   }
 
-  const location = mockLocations.find((l) => l.locationId === id)
-
-  if (!location) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.header}>
-          <Button appearance="subtle" onClick={() => void navigate('/locations')}>
-            Back
-          </Button>
-          <Title2 as="h1">Location Not Found</Title2>
-        </div>
-        <Text>No location found with ID: {id}</Text>
-      </div>
-    )
-  }
-
-  const buildingName = getBuildingName(location.buildingId)
-  const levelName = getLevelName(location.levelId)
-  const equipmentAtLocation = mockEquipment.filter((e) => e.homeLocationId === location.locationId)
+  const { location, buildings, levels, equipment: equipmentAtLocation, persons } = data
+  const buildingName = getBuildingName(location.buildingId, buildings)
+  const levelName = getLevelName(location.levelId, levels)
 
   const handleBack = () => {
     void navigate('/locations')
   }
 
   const handleEdit = () => {
-    // Edit functionality placeholder - navigates back for now
     void navigate('/locations')
   }
 
@@ -162,7 +174,9 @@ export default function LocationDetailPage() {
         <Text>{levelName}</Text>
         <Text className={styles.label}>Contact Person</Text>
         <Text>
-          {location.contactPersonId ? getPersonName(location.contactPersonId) : 'Not assigned'}
+          {location.contactPersonId
+            ? getPersonName(location.contactPersonId, persons)
+            : 'Not assigned'}
         </Text>
         <Text className={styles.label}>Description</Text>
         <Text>{location.description || 'No description.'}</Text>

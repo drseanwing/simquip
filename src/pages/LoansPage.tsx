@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Button,
   Input,
@@ -16,8 +16,12 @@ import {
 } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
 import { LoanStatus } from '../types'
+import type { Equipment, Team } from '../types'
 import StatusBadge from '../components/StatusBadge'
-import { mockLoanTransfers, mockEquipment, mockTeams } from '../services/mockData'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
+import { useServices } from '../contexts/ServiceContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 
 const PAGE_SIZE = 25
 
@@ -78,31 +82,51 @@ const columns = [
   { key: 'reason', label: 'Reason' },
 ]
 
-function getEquipmentName(equipmentId: string): string {
-  const equip = mockEquipment.find((e) => e.equipmentId === equipmentId)
+function getEquipmentName(equipmentId: string, equipment: Equipment[]): string {
+  const equip = equipment.find((e) => e.equipmentId === equipmentId)
   return equip?.name ?? 'Unknown Equipment'
 }
 
-function getTeamName(teamId: string): string {
-  const team = mockTeams.find((t) => t.teamId === teamId)
+function getTeamName(teamId: string, teams: Team[]): string {
+  const team = teams.find((t) => t.teamId === teamId)
   return team?.name ?? 'Unknown Team'
 }
 
 export default function LoansPage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { loanTransferService, equipmentService, teamService } = useServices()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(STATUS_ALL)
   const [currentPage, setCurrentPage] = useState(1)
 
+  const fetcher = useCallback(
+    async () => {
+      const [loans, equipment, teams] = await Promise.all([
+        loanTransferService.getAll({ top: 5000 }),
+        equipmentService.getAll({ top: 5000 }),
+        teamService.getAll({ top: 500 }),
+      ])
+      return {
+        loans: loans.data,
+        equipment: equipment.data,
+        teams: teams.data,
+      }
+    },
+    [loanTransferService, equipmentService, teamService],
+  )
+
+  const { data, loading, error, reload } = useAsyncData(fetcher, [])
+
   const filteredLoans = useMemo(() => {
-    let result = mockLoanTransfers
+    if (!data) return []
+    let result = [...data.loans]
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase()
       result = result.filter((loan) => {
-        const equipName = getEquipmentName(loan.equipmentId)
+        const equipName = getEquipmentName(loan.equipmentId, data.equipment)
         return equipName.toLowerCase().includes(query)
       })
     }
@@ -112,7 +136,11 @@ export default function LoansPage() {
     }
 
     return result
-  }, [searchQuery, statusFilter])
+  }, [data, searchQuery, statusFilter])
+
+  if (loading) return <LoadingState />
+  if (error || !data)
+    return <ErrorState message={error ?? 'Failed to load loans'} onRetry={reload} />
 
   const totalItems = filteredLoans.length
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
@@ -198,9 +226,9 @@ export default function LoansPage() {
                     }
                   }}
                 >
-                  <TableCell>{getEquipmentName(loan.equipmentId)}</TableCell>
-                  <TableCell>{getTeamName(loan.originTeamId)}</TableCell>
-                  <TableCell>{getTeamName(loan.recipientTeamId)}</TableCell>
+                  <TableCell>{getEquipmentName(loan.equipmentId, data.equipment)}</TableCell>
+                  <TableCell>{getTeamName(loan.originTeamId, data.teams)}</TableCell>
+                  <TableCell>{getTeamName(loan.recipientTeamId, data.teams)}</TableCell>
                   <TableCell>{loan.startDate}</TableCell>
                   <TableCell>{loan.dueDate}</TableCell>
                   <TableCell>
