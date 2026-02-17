@@ -318,6 +318,7 @@ export default function EquipmentListPage() {
           value={searchQuery}
           onChange={handleSearchChange}
           type="search"
+          aria-label="Search equipment"
         />
         <Select className={styles.statusFilter} value={statusFilter} onChange={handleStatusChange}>
           <option value={STATUS_ALL}>All Statuses</option>
@@ -355,6 +356,13 @@ export default function EquipmentListPage() {
                   key={item.equipmentId}
                   className={styles.tableRow}
                   onClick={() => handleRowClick(item.equipmentId)}
+                  role="link"
+                  tabIndex={0}
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      handleRowClick(item.equipmentId)
+                    }
+                  }}
                 >
                   <TableCell>{item.equipmentCode}</TableCell>
                   <TableCell>{item.name}</TableCell>
