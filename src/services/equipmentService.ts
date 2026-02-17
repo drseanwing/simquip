@@ -74,8 +74,9 @@ export class EquipmentService {
    * Returns all equipment whose `parentEquipmentId` matches the given id.
    */
   async getChildEquipment(parentId: string): Promise<Equipment[]> {
+    const sanitizedId = parentId.replace(/'/g, "''")
     const result = await this.equipmentDataService.getAll({
-      filter: `parentEquipmentId eq '${parentId}'`,
+      filter: `parentEquipmentId eq '${sanitizedId}'`,
     })
     return result.data
   }

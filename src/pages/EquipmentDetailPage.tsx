@@ -116,6 +116,10 @@ export default function EquipmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
 
+  if (!id) {
+    return <Text>Invalid URL</Text>
+  }
+
   const equipment = mockEquipment.find((e) => e.equipmentId === id)
 
   if (!equipment) {
@@ -151,11 +155,14 @@ export default function EquipmentDetailPage() {
       return <Text className={styles.placeholder}>No contents listed.</Text>
     }
     try {
-      const contents: unknown = JSON.parse(equipment.contentsListJson)
-      if (Array.isArray(contents) && contents.length > 0) {
+      const parsed: unknown = JSON.parse(equipment.contentsListJson)
+      const contents = Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === 'string')
+        : []
+      if (contents.length > 0) {
         return (
           <div className={styles.contentsBlock}>
-            {(contents as string[]).map((item, index) => (
+            {contents.map((item, index) => (
               <div key={index}>{item}</div>
             ))}
           </div>

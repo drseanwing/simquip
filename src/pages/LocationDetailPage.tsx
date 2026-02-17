@@ -99,6 +99,10 @@ export default function LocationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
+  if (!id) {
+    return <Text>Invalid URL</Text>
+  }
+
   const location = mockLocations.find((l) => l.locationId === id)
 
   if (!location) {

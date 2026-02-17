@@ -110,6 +110,10 @@ export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
 
+  if (!id) {
+    return <Text>Invalid URL</Text>
+  }
+
   const team = mockTeams.find((t) => t.teamId === id)
 
   if (!team) {

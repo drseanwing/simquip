@@ -68,6 +68,10 @@ export default function LoanDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
+  if (!id) {
+    return <Text>Invalid URL</Text>
+  }
+
   const loan = mockLoanTransfers.find((l) => l.loanTransferId === id)
 
   if (!loan) {

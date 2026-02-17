@@ -22,6 +22,10 @@ export default function EquipmentEditPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
+  if (!id) {
+    return <Text>Invalid URL</Text>
+  }
+
   const existing = mockEquipment.find((e) => e.equipmentId === id)
 
   if (!existing) {
