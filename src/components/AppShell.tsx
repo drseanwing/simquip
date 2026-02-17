@@ -1,9 +1,8 @@
 import {
   makeStyles,
-  tokens,
+  shorthands,
   Tab,
   TabList,
-  Title3,
   type SelectTabData,
   type SelectTabEvent,
 } from '@fluentui/react-components'
@@ -24,23 +23,51 @@ const useStyles = makeStyles({
     minHeight: '100vh',
   },
   header: {
+    backgroundColor: 'var(--redi-navy)',
+    color: '#ffffff',
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalL,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
-    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
-    backgroundColor: tokens.colorNeutralBackground1,
+    ...shorthands.gap('0px'),
+    flexWrap: 'wrap',
+  },
+  titleBlock: {
+    display: 'flex',
+    alignItems: 'center',
+    ...shorthands.gap('12px'),
+    paddingLeft: '20px',
+    paddingRight: '16px',
+    paddingTop: '10px',
+    paddingBottom: '10px',
+  },
+  logo: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '6px',
   },
   title: {
-    whiteSpace: 'nowrap',
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
+    fontFamily: "'Montserrat', sans-serif",
+    fontSize: '1.25rem',
+    fontWeight: 700,
+    color: '#ffffff',
+    letterSpacing: '-0.01em',
+    whiteSpace: 'nowrap' as const,
+  },
+  titleAccent: {
+    color: 'var(--redi-coral)',
+  },
+  navArea: {
+    flex: 1,
+    minWidth: 0,
+  },
+  gradientBar: {
+    height: '4px',
+    background:
+      'linear-gradient(90deg, var(--redi-lime) 0%, var(--redi-teal) 50%, var(--redi-navy) 100%)',
   },
   content: {
     flex: 1,
-    padding: tokens.spacingHorizontalL,
-    backgroundColor: tokens.colorNeutralBackground2,
+    ...shorthands.padding('20px', '24px'),
+    backgroundColor: 'var(--redi-light-gray)',
   },
 })
 
@@ -65,15 +92,32 @@ export default function AppShell() {
   return (
     <div className={styles.root}>
       <header className={styles.header}>
-        <Title3 className={styles.title}>SimQuip</Title3>
-        <TabList selectedValue={selectedTab} onTabSelect={handleTabSelect}>
-          {navItems.map((item) => (
-            <Tab key={item.path} value={item.path}>
-              {item.label}
-            </Tab>
-          ))}
-        </TabList>
+        <div className={styles.titleBlock}>
+          <img src="./icons/icon-192.png" alt="SimQuip logo" className={styles.logo} />
+          <span className={styles.title}>
+            Sim<span className={styles.titleAccent}>Quip</span>
+          </span>
+        </div>
+        <nav className={styles.navArea}>
+          <TabList
+            selectedValue={selectedTab}
+            onTabSelect={handleTabSelect}
+            appearance="subtle"
+            size="large"
+          >
+            {navItems.map((item) => (
+              <Tab
+                key={item.path}
+                value={item.path}
+                style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}
+              >
+                {item.label}
+              </Tab>
+            ))}
+          </TabList>
+        </nav>
       </header>
+      <div className={styles.gradientBar} />
       <main className={styles.content}>
         <Outlet />
       </main>

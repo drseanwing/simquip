@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { FluentProvider, webLightTheme } from '@fluentui/react-components'
+import { FluentProvider } from '@fluentui/react-components'
+import rediLightTheme from './theme'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import PowerProvider from './PowerProvider'
 import App from './App'
@@ -10,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <PowerProvider>
-        <FluentProvider theme={webLightTheme}>
+        <FluentProvider theme={rediLightTheme}>
           <App />
         </FluentProvider>
       </PowerProvider>
