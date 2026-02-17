@@ -26,6 +26,7 @@ function validEquipment(): Equipment {
     contactPersonId: 'person-1',
     homeLocationId: 'loc-1',
     parentEquipmentId: null,
+    keyImageUrl: '',
     quickStartFlowChartJson: '{}',
     contentsListJson: '[]',
     status: EquipmentStatus.Available,

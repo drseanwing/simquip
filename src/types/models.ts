@@ -58,6 +58,7 @@ export interface Equipment {
   contactPersonId: string
   homeLocationId: string
   parentEquipmentId: string | null
+  keyImageUrl: string
   quickStartFlowChartJson: string
   contentsListJson: string
   status: EquipmentStatus

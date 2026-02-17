@@ -4,7 +4,6 @@ import {
   Input,
   makeStyles,
   Select,
-  Spinner,
   Table,
   TableBody,
   TableCell,
@@ -19,166 +18,25 @@ import { useNavigate } from 'react-router-dom'
 import type { Equipment } from '../types'
 import { EquipmentStatus, OwnerType } from '../types'
 import StatusBadge from '../components/StatusBadge'
+import { mockEquipment, mockTeams, mockPersons, mockLocations } from '../services/mockData'
 
-const PAGE_SIZE = 5
-
-const MOCK_EQUIPMENT: Equipment[] = [
-  {
-    equipmentId: '1',
-    equipmentCode: 'SIM-001',
-    name: 'SimMan 3G Plus',
-    description: 'High-fidelity patient simulator',
-    ownerType: OwnerType.Team,
-    ownerTeamId: 'team-1',
-    ownerPersonId: null,
-    contactPersonId: 'person-1',
-    homeLocationId: 'loc-1',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.Available,
-    active: true,
-  },
-  {
-    equipmentId: '2',
-    equipmentCode: 'SIM-002',
-    name: 'SimBaby',
-    description: 'Infant patient simulator',
-    ownerType: OwnerType.Team,
-    ownerTeamId: 'team-1',
-    ownerPersonId: null,
-    contactPersonId: 'person-2',
-    homeLocationId: 'loc-2',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.InUse,
-    active: true,
-  },
-  {
-    equipmentId: '3',
-    equipmentCode: 'SIM-003',
-    name: 'Resusci Anne QCPR',
-    description: 'CPR training manikin',
-    ownerType: OwnerType.Person,
-    ownerTeamId: null,
-    ownerPersonId: 'person-3',
-    contactPersonId: 'person-3',
-    homeLocationId: 'loc-1',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.UnderMaintenance,
-    active: true,
-  },
-  {
-    equipmentId: '4',
-    equipmentCode: 'SIM-004',
-    name: 'Laerdal Airway Trainer',
-    description: 'Airway management training device',
-    ownerType: OwnerType.Team,
-    ownerTeamId: 'team-2',
-    ownerPersonId: null,
-    contactPersonId: 'person-1',
-    homeLocationId: 'loc-3',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.Available,
-    active: true,
-  },
-  {
-    equipmentId: '5',
-    equipmentCode: 'SIM-005',
-    name: 'Harvey Cardiopulmonary Simulator',
-    description: 'Cardiopulmonary patient simulator',
-    ownerType: OwnerType.Team,
-    ownerTeamId: 'team-1',
-    ownerPersonId: null,
-    contactPersonId: 'person-2',
-    homeLocationId: 'loc-2',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.Retired,
-    active: false,
-  },
-  {
-    equipmentId: '6',
-    equipmentCode: 'SIM-006',
-    name: 'CAE Lucina',
-    description: 'Maternal and neonatal simulator',
-    ownerType: OwnerType.Team,
-    ownerTeamId: 'team-2',
-    ownerPersonId: null,
-    contactPersonId: 'person-4',
-    homeLocationId: 'loc-1',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.Available,
-    active: true,
-  },
-  {
-    equipmentId: '7',
-    equipmentCode: 'SIM-007',
-    name: 'Ultrasound Training Phantom',
-    description: 'Ultrasound-guided procedure trainer',
-    ownerType: OwnerType.Person,
-    ownerTeamId: null,
-    ownerPersonId: 'person-5',
-    contactPersonId: 'person-5',
-    homeLocationId: 'loc-3',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.InUse,
-    active: true,
-  },
-  {
-    equipmentId: '8',
-    equipmentCode: 'SIM-008',
-    name: 'Surgical Skills Trainer',
-    description: 'Laparoscopic surgery trainer',
-    ownerType: OwnerType.Team,
-    ownerTeamId: 'team-3',
-    ownerPersonId: null,
-    contactPersonId: 'person-1',
-    homeLocationId: 'loc-2',
-    parentEquipmentId: null,
-    quickStartFlowChartJson: '{}',
-    contentsListJson: '[]',
-    status: EquipmentStatus.Available,
-    active: true,
-  },
-]
-
-const MOCK_OWNERS: Record<string, string> = {
-  'team-1': 'Simulation Team A',
-  'team-2': 'Simulation Team B',
-  'team-3': 'Surgical Training Unit',
-  'person-3': 'Dr Sarah Chen',
-  'person-5': 'Dr James Patel',
-}
-
-const MOCK_LOCATIONS: Record<string, string> = {
-  'loc-1': 'Sim Centre Room 1',
-  'loc-2': 'Sim Centre Room 2',
-  'loc-3': 'Skills Lab',
-}
+const PAGE_SIZE = 25
 
 function getOwnerName(item: Equipment): string {
   if (item.ownerType === OwnerType.Team && item.ownerTeamId) {
-    return MOCK_OWNERS[item.ownerTeamId] ?? 'Unknown Team'
+    const team = mockTeams.find((t) => t.teamId === item.ownerTeamId)
+    return team ? team.name : 'Unknown Team'
   }
   if (item.ownerType === OwnerType.Person && item.ownerPersonId) {
-    return MOCK_OWNERS[item.ownerPersonId] ?? 'Unknown Person'
+    const person = mockPersons.find((p) => p.personId === item.ownerPersonId)
+    return person ? person.displayName : 'Unknown Person'
   }
   return 'Unassigned'
 }
 
 function getLocationName(item: Equipment): string {
-  return MOCK_LOCATIONS[item.homeLocationId] ?? 'Unknown Location'
+  const loc = mockLocations.find((l) => l.locationId === item.homeLocationId)
+  return loc?.name ?? 'Unknown Location'
 }
 
 const useStyles = makeStyles({
@@ -224,12 +82,6 @@ const useStyles = makeStyles({
     padding: tokens.spacingVerticalXXL,
     gap: tokens.spacingVerticalM,
   },
-  loadingState: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: tokens.spacingVerticalXXL,
-  },
 })
 
 const columns = [
@@ -249,10 +101,9 @@ export default function EquipmentListPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(STATUS_ALL)
   const [currentPage, setCurrentPage] = useState(1)
-  const [isLoading] = useState(false)
 
   const filteredEquipment = useMemo(() => {
-    let result = MOCK_EQUIPMENT
+    let result = [...mockEquipment]
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase()
@@ -294,17 +145,6 @@ export default function EquipmentListPage() {
 
   const handleAddEquipment = () => {
     void navigate('/equipment/new')
-  }
-
-  if (isLoading) {
-    return (
-      <div className={styles.page}>
-        <Title2 as="h1">Equipment</Title2>
-        <div className={styles.loadingState}>
-          <Spinner size="large" label="Loading equipment..." />
-        </div>
-      </div>
-    )
   }
 
   return (

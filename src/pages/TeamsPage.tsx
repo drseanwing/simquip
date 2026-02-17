@@ -18,7 +18,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { mockTeams, mockPersons, mockLocations } from '../services/mockData'
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 25
 
 const useStyles = makeStyles({
   page: {

@@ -10,7 +10,7 @@ import {
   Title2,
   tokens,
 } from '@fluentui/react-components'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { validateTeam } from '../services/validators'
 import { mockPersons, mockLocations, mockTeams } from '../services/mockData'
 import type { Team } from '../types'
@@ -51,15 +51,43 @@ function getFieldError(
   return err?.message
 }
 
-export default function TeamCreatePage() {
+export default function TeamEditPage() {
+  const styles = useStyles()
+  const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+
+  if (!id) {
+    return <Text>Invalid URL</Text>
+  }
+
+  const existing = mockTeams.find((t) => t.teamId === id)
+
+  if (!existing) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.header}>
+          <Button appearance="subtle" onClick={() => void navigate('/teams')}>
+            Back
+          </Button>
+          <Title2 as="h1">Team Not Found</Title2>
+        </div>
+        <Text>No team found with ID: {id}</Text>
+      </div>
+    )
+  }
+
+  return <TeamEditForm existing={existing} />
+}
+
+function TeamEditForm({ existing }: { existing: Team }) {
   const styles = useStyles()
   const navigate = useNavigate()
 
-  const [name, setName] = useState('')
-  const [teamCode, setTeamCode] = useState('')
-  const [mainContactPersonId, setMainContactPersonId] = useState('')
-  const [mainLocationId, setMainLocationId] = useState('')
-  const [active, setActive] = useState(true)
+  const [name, setName] = useState(existing.name)
+  const [teamCode, setTeamCode] = useState(existing.teamCode)
+  const [mainContactPersonId, setMainContactPersonId] = useState(existing.mainContactPersonId)
+  const [mainLocationId, setMainLocationId] = useState(existing.mainLocationId)
+  const [active, setActive] = useState(existing.active)
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
 
@@ -81,21 +109,20 @@ export default function TeamCreatePage() {
       return
     }
 
-    const newTeam = {
-      ...team,
-      teamId: crypto.randomUUID(),
-    } as Team
-    mockTeams.push(newTeam)
+    const index = mockTeams.findIndex((t) => t.teamId === existing.teamId)
+    if (index !== -1) {
+      mockTeams[index] = { ...mockTeams[index], ...team } as Team
+    }
 
     setErrors([])
     setShowSuccess(true)
     setTimeout(() => {
-      void navigate('/teams')
+      void navigate(`/teams/${existing.teamId}`)
     }, 1000)
   }
 
   const handleCancel = () => {
-    void navigate('/teams')
+    void navigate(`/teams/${existing.teamId}`)
   }
 
   return (
@@ -104,10 +131,10 @@ export default function TeamCreatePage() {
         <Button appearance="subtle" onClick={handleCancel}>
           Back
         </Button>
-        <Title2 as="h1">Create Team</Title2>
+        <Title2 as="h1">Edit Team</Title2>
       </div>
 
-      {showSuccess && <Text className={styles.successMessage}>Team created successfully!</Text>}
+      {showSuccess && <Text className={styles.successMessage}>Team updated successfully!</Text>}
 
       <div className={styles.form}>
         <Field

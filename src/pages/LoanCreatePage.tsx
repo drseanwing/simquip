@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { LoanReason, LoanStatus, OwnerType } from '../types'
 import type { LoanTransfer } from '../types'
 import { validateLoanTransfer } from '../services/validators'
-import { mockEquipment, mockTeams, mockPersons } from '../services/mockData'
+import { mockEquipment, mockTeams, mockPersons, mockLoanTransfers } from '../services/mockData'
 
 const useStyles = makeStyles({
   page: {
@@ -154,6 +154,12 @@ export default function LoanCreatePage() {
       setShowSuccess(false)
       return
     }
+
+    const newLoan = {
+      ...loan,
+      loanTransferId: crypto.randomUUID(),
+    } as LoanTransfer
+    mockLoanTransfers.push(newLoan)
 
     setErrors([])
     setShowSuccess(true)

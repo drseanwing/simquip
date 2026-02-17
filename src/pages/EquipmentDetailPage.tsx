@@ -1,19 +1,40 @@
+import { lazy, Suspense, useState } from 'react'
 import {
   Button,
   makeStyles,
+  Spinner,
   Tab,
   TabList,
   Text,
-  Title2,
   Title3,
   tokens,
 } from '@fluentui/react-components'
-import { useState } from 'react'
+import { EditRegular } from '@fluentui/react-icons'
 import { useNavigate, useParams } from 'react-router-dom'
-import { OwnerType } from '../types'
-import StatusBadge from '../components/StatusBadge'
-import { mockEquipment, mockTeams, mockPersons, mockLocations } from '../services/mockData'
+import {
+  MediaType,
+  OwnerType,
+  parseContentsJson,
+  serializeContents,
+  parseFlowChartJson,
+  serializeFlowChart,
+} from '../types'
+import type { ContentsItem, EquipmentMedia, FlowChartData } from '../types'
 import type { SelectTabData, SelectTabEvent } from '@fluentui/react-components'
+import StatusBadge from '../components/StatusBadge'
+import ImageGallery from '../components/equipment/ImageGallery'
+import ContentsChecklist from '../components/equipment/ContentsChecklist'
+import MediaManager from '../components/equipment/MediaManager'
+import {
+  mockEquipment,
+  mockEquipmentMedia,
+  mockTeams,
+  mockPersons,
+  mockLocations,
+} from '../services/mockData'
+
+const FlowChartViewer = lazy(() => import('../components/equipment/FlowChartViewer'))
+const FlowChartEditor = lazy(() => import('../components/equipment/FlowChartEditor'))
 
 const useStyles = makeStyles({
   page: {
@@ -37,11 +58,19 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalM,
     marginLeft: 'auto',
   },
+  detailsPanel: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: tokens.spacingHorizontalXL,
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr',
+    },
+  },
   infoGrid: {
     display: 'grid',
     gridTemplateColumns: '160px 1fr',
     gap: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
-    maxWidth: '600px',
+    alignContent: 'start',
   },
   label: {
     fontWeight: tokens.fontWeightSemibold,
@@ -71,14 +100,13 @@ const useStyles = makeStyles({
       backgroundColor: tokens.colorNeutralBackground1Hover,
     },
   },
-  contentsBlock: {
-    padding: tokens.spacingVerticalM,
-    backgroundColor: tokens.colorNeutralBackground1,
-    borderRadius: tokens.borderRadiusMedium,
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
+  gallerySection: {
+    minWidth: 0,
+  },
+  flowchartToolbar: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginBottom: tokens.spacingVerticalS,
   },
 })
 
@@ -115,6 +143,12 @@ export default function EquipmentDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
+  const [flowchartEditing, setFlowchartEditing] = useState(false)
+
+  // Local state for mock data mutations
+  const [contentsOverride, setContentsOverride] = useState<string | null>(null)
+  const [flowchartOverride, setFlowchartOverride] = useState<string | null>(null)
+  const [mediaOverride, setMediaOverride] = useState<EquipmentMedia[] | null>(null)
 
   if (!id) {
     return <Text>Invalid URL</Text>
@@ -129,7 +163,7 @@ export default function EquipmentDetailPage() {
           <Button appearance="subtle" onClick={() => void navigate('/equipment')}>
             Back
           </Button>
-          <Title2 as="h1">Equipment Not Found</Title2>
+          <Title3 as="h1">Equipment Not Found</Title3>
         </div>
         <Text>No equipment found with ID: {id}</Text>
       </div>
@@ -137,6 +171,20 @@ export default function EquipmentDetailPage() {
   }
 
   const children = mockEquipment.filter((e) => e.parentEquipmentId === equipment.equipmentId)
+
+  // Resolve current data (with possible local overrides)
+  const contentsJson = contentsOverride ?? equipment.contentsListJson
+  const contentsItems = parseContentsJson(contentsJson)
+  const flowchartJson = flowchartOverride ?? equipment.quickStartFlowChartJson
+  const flowchartData = parseFlowChartJson(flowchartJson)
+
+  const equipmentImages = (mediaOverride ?? mockEquipmentMedia)
+    .filter((m) => m.equipmentId === equipment.equipmentId && m.mediaType === MediaType.Image)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+
+  const equipmentMedia = (mediaOverride ?? mockEquipmentMedia)
+    .filter((m) => m.equipmentId === equipment.equipmentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
 
   const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
     setSelectedTab(data.value as TabValue)
@@ -150,93 +198,95 @@ export default function EquipmentDetailPage() {
     void navigate('/equipment')
   }
 
-  const renderContents = () => {
-    if (!equipment.contentsListJson || equipment.contentsListJson === '[]') {
-      return <Text className={styles.placeholder}>No contents listed.</Text>
-    }
-    try {
-      const parsed: unknown = JSON.parse(equipment.contentsListJson)
-      const contents = Array.isArray(parsed)
-        ? parsed.filter((item): item is string => typeof item === 'string')
-        : []
-      if (contents.length > 0) {
-        return (
-          <div className={styles.contentsBlock}>
-            {contents.map((item, index) => (
-              <div key={index}>{item}</div>
-            ))}
-          </div>
-        )
-      }
-      return <Text className={styles.placeholder}>No contents listed.</Text>
-    } catch {
-      return <div className={styles.contentsBlock}>{equipment.contentsListJson}</div>
-    }
+  const handleContentsSave = (items: ContentsItem[]) => {
+    setContentsOverride(serializeContents(items))
   }
 
-  const renderQuickStart = () => {
-    if (!equipment.quickStartFlowChartJson || equipment.quickStartFlowChartJson === '{}') {
-      return <Text className={styles.placeholder}>No quick start flow chart configured.</Text>
-    }
-    return <div className={styles.contentsBlock}>{equipment.quickStartFlowChartJson}</div>
+  const handleFlowchartSave = (data: FlowChartData) => {
+    setFlowchartOverride(serializeFlowChart(data))
+    setFlowchartEditing(false)
   }
 
-  const renderMedia = () => {
-    return <Text className={styles.placeholder}>No images or attachments.</Text>
-  }
-
-  const renderChildren = () => {
-    if (children.length === 0) {
-      return <Text className={styles.placeholder}>No nested equipment.</Text>
-    }
-    return (
-      <div className={styles.childList}>
-        {children.map((child) => (
-          <div
-            key={child.equipmentId}
-            className={styles.childItem}
-            onClick={() => void navigate(`/equipment/${child.equipmentId}`)}
-          >
-            <Text weight="semibold">{child.equipmentCode}</Text>
-            <Text>{child.name}</Text>
-            <StatusBadge status={child.status} />
-          </div>
-        ))}
-      </div>
+  const handleMediaChange = (media: EquipmentMedia[]) => {
+    // Merge: keep non-equipment media, replace equipment media
+    const otherMedia = (mediaOverride ?? mockEquipmentMedia).filter(
+      (m) => m.equipmentId !== equipment.equipmentId,
     )
-  }
-
-  const renderLoans = () => {
-    return <Text className={styles.placeholder}>No loan history.</Text>
+    setMediaOverride([...otherMedia, ...media])
   }
 
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'details':
         return (
-          <div className={styles.infoGrid}>
-            <Text className={styles.label}>Owner</Text>
-            <Text>
-              {getOwnerDisplay(equipment.ownerType, equipment.ownerTeamId, equipment.ownerPersonId)}
-            </Text>
-            <Text className={styles.label}>Contact Person</Text>
-            <Text>{getPersonName(equipment.contactPersonId)}</Text>
-            <Text className={styles.label}>Home Location</Text>
-            <Text>{getLocationName(equipment.homeLocationId)}</Text>
-            <Text className={styles.label}>Description</Text>
-            <Text>{equipment.description || 'No description.'}</Text>
+          <div className={styles.detailsPanel}>
+            <div className={styles.infoGrid}>
+              <Text className={styles.label}>Owner</Text>
+              <Text>
+                {getOwnerDisplay(
+                  equipment.ownerType,
+                  equipment.ownerTeamId,
+                  equipment.ownerPersonId,
+                )}
+              </Text>
+              <Text className={styles.label}>Contact Person</Text>
+              <Text>{getPersonName(equipment.contactPersonId)}</Text>
+              <Text className={styles.label}>Home Location</Text>
+              <Text>{getLocationName(equipment.homeLocationId)}</Text>
+              <Text className={styles.label}>Description</Text>
+              <Text>{equipment.description || 'No description.'}</Text>
+            </div>
+            <div className={styles.gallerySection}>
+              <ImageGallery images={equipmentImages} />
+            </div>
           </div>
         )
       case 'contents':
-        return renderContents()
+        return <ContentsChecklist items={contentsItems} onSave={handleContentsSave} />
       case 'quickstart':
-        return renderQuickStart()
+        return (
+          <Suspense fallback={<Spinner label="Loading flowchart..." />}>
+            {flowchartEditing ? (
+              <FlowChartEditor
+                data={flowchartData}
+                onSave={handleFlowchartSave}
+                onCancel={() => setFlowchartEditing(false)}
+              />
+            ) : (
+              <>
+                <div className={styles.flowchartToolbar}>
+                  <Button icon={<EditRegular />} onClick={() => setFlowchartEditing(true)}>
+                    Edit Flowchart
+                  </Button>
+                </div>
+                <FlowChartViewer data={flowchartData} />
+              </>
+            )}
+          </Suspense>
+        )
       case 'media':
-        return renderMedia()
+        return <MediaManager media={equipmentMedia} onMediaChange={handleMediaChange} />
       case 'children':
-        return renderChildren()
+        if (children.length === 0) {
+          return <Text className={styles.placeholder}>No nested equipment.</Text>
+        }
+        return (
+          <div className={styles.childList}>
+            {children.map((child) => (
+              <div
+                key={child.equipmentId}
+                className={styles.childItem}
+                onClick={() => void navigate(`/equipment/${child.equipmentId}`)}
+              >
+                <Text weight="semibold">{child.equipmentCode}</Text>
+                <Text>{child.name}</Text>
+                <StatusBadge status={child.status} />
+              </div>
+            ))}
+          </div>
+        )
       case 'loans':
-        return renderLoans()
+        return <Text className={styles.placeholder}>No loan history.</Text>
     }
   }
 

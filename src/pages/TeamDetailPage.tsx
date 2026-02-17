@@ -151,8 +151,7 @@ export default function TeamDetailPage() {
   }
 
   const handleEdit = () => {
-    // Edit not yet implemented; placeholder navigation
-    void navigate(`/teams/${id}`)
+    void navigate(`/teams/${id}/edit`)
   }
 
   const handleBack = () => {

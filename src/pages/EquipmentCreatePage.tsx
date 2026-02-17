@@ -1,6 +1,8 @@
 import { Button, makeStyles, Title2, tokens } from '@fluentui/react-components'
 import { useNavigate } from 'react-router-dom'
 import EquipmentForm from '../components/EquipmentForm'
+import type { Equipment } from '../types'
+import { mockEquipment } from '../services/mockData'
 
 const useStyles = makeStyles({
   page: {
@@ -24,7 +26,12 @@ export default function EquipmentCreatePage() {
     void navigate('/equipment')
   }
 
-  const handleSave = () => {
+  const handleSave = (equipment: Partial<Equipment>) => {
+    const newEquipment = {
+      ...equipment,
+      equipmentId: crypto.randomUUID(),
+    } as Equipment
+    mockEquipment.push(newEquipment)
     setTimeout(() => {
       void navigate('/equipment')
     }, 1000)

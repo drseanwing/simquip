@@ -19,7 +19,7 @@ import { LoanStatus } from '../types'
 import StatusBadge from '../components/StatusBadge'
 import { mockLoanTransfers, mockEquipment, mockTeams } from '../services/mockData'
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 25
 
 const STATUS_ALL = '__all__'
 

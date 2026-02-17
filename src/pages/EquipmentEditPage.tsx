@@ -1,5 +1,6 @@
 import { Button, makeStyles, Text, Title2, tokens } from '@fluentui/react-components'
 import { useNavigate, useParams } from 'react-router-dom'
+import type { Equipment } from '../types'
 import { mockEquipment } from '../services/mockData'
 import EquipmentForm from '../components/EquipmentForm'
 
@@ -46,7 +47,11 @@ export default function EquipmentEditPage() {
     void navigate(`/equipment/${id}`)
   }
 
-  const handleSave = () => {
+  const handleSave = (equipment: Partial<Equipment>) => {
+    const index = mockEquipment.findIndex((e) => e.equipmentId === id)
+    if (index !== -1) {
+      mockEquipment[index] = { ...mockEquipment[index], ...equipment } as Equipment
+    }
     setTimeout(() => {
       void navigate('/equipment')
     }, 1000)
