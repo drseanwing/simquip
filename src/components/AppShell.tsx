@@ -59,6 +59,13 @@ const useStyles = makeStyles({
     flex: 1,
     minWidth: 0,
   },
+  tab: {
+    color: '#ffffff',
+    fontWeight: 500,
+    ':hover': {
+      color: '#d5d65b',
+    },
+  },
   gradientBar: {
     height: '4px',
     background:
@@ -106,11 +113,7 @@ export default function AppShell() {
             size="large"
           >
             {navItems.map((item) => (
-              <Tab
-                key={item.path}
-                value={item.path}
-                style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}
-              >
+              <Tab key={item.path} value={item.path} className={styles.tab}>
                 {item.label}
               </Tab>
             ))}
