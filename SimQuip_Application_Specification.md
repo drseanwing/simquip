@@ -51,11 +51,16 @@ Team records must support:
 Each loan/transfer record must support:
 - Start date
 - Due date
-- Origin (default owner team where applicable)
+- Origin
 - Recipient (loaning team)
 - Categorical reason (simulation, training, service, etc.)
 - Approver (person from recipient team)
 - Status (draft, active, overdue, returned, cancelled)
+
+Origin defaulting rules:
+- If equipment owner is a team: default origin to that owner team.
+- If equipment owner is a person with exactly one active team membership: default origin to that team.
+- If equipment owner is a person with zero or multiple active team memberships: require manual origin selection.
 
 ## 3. Architecture and Technology
 
@@ -151,7 +156,8 @@ Secondary strategy (outside Power Platform connector calls, when explicitly requ
 
 Rules:
 - Exactly one owner target is set based on `ownerType`.
-- `parentEquipmentId` cannot create cycles.
+- `parentEquipmentId` cannot create cycles (validate ancestry recursively before save).
+- Equipment nesting depth must not exceed 10 levels.
 
 ### 4.8 EquipmentMedia
 - `equipmentMediaId` (PK)
@@ -180,13 +186,15 @@ Rules:
 - `recipientTeamId` (FK)
 - `reasonCode` (enum)
 - `approverPersonId` (FK -> Person)
+- `isInternalTransfer` (boolean, default `false`)
 - `status` (enum)
 - `notes`
 
 Rules:
 - `dueDate >= startDate`
 - `approverPersonId` must belong to recipient team
-- `originTeamId != recipientTeamId` unless explicitly flagged as internal transfer
+- `isInternalTransfer` is set to `true` only for approved same-team logistical moves that still require tracking.
+- `originTeamId = recipientTeamId` if and only if `isInternalTransfer = true`
 
 ### 4.11 Reference Enum Tables
 - `LoanReason` (Simulation, Training, Service, Other)
@@ -276,7 +284,7 @@ pac code add-data-source -a dataverse -t <LoanTransferTable>
 
 ### 10.4 Local Run / Build / Deploy
 ```bash
-npm run dev            # pac code run middleware + vite dev server workflow
+npm run dev            # script must run PAC middleware (`pac code run`) and Vite dev server together
 npm run build
 pac code push --solutionName SimQuip
 ```
@@ -285,4 +293,3 @@ pac code push --solutionName SimQuip
 - Use solution-aware flows and connection references.
 - For cross-environment deployment, generate and maintain deployment settings.
 - Prefer Dataverse Web API for complex flow definition updates where connector update bugs are encountered.
-

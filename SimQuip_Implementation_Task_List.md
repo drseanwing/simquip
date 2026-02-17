@@ -60,14 +60,14 @@
 ## 4. Equipment Module
 - [ ] Build equipment list view (search/filter/sort/pagination)
 - [ ] Build equipment create/edit form with owner/contact/home location logic
-- [ ] Implement owner defaulting behavior for home location from team main location
+- [ ] Implement owner defaulting behavior for home location from team main location (on create, and on owner change only when `homeLocationIsManualOverride = false`)
 - [ ] Build equipment detail page with:
   - [ ] Image gallery
   - [ ] Attachment list
   - [ ] Interactive contents list editor/view
   - [ ] Interactive quick start flow chart editor/view
 - [ ] Build nested equipment management UI (add/remove child equipment)
-- [ ] Add validation and conflict handling for nested relationships
+- [ ] Add validation and conflict handling for nested relationships (enforce both no-cycle rule and maximum depth rule)
 
 ### Quality gate 4
 - [ ] Add unit tests for owner/defaulting rules
@@ -166,4 +166,3 @@
 - [ ] Triage and fix high-priority defects
 - [ ] Confirm reminder flow reliability and escalation paths
 - [ ] Capture backlog for iterative improvements
-
