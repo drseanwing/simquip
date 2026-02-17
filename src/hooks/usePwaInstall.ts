@@ -5,9 +5,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+function getIsStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+}
+
 export function usePwaInstall() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isInstalled, setIsInstalled] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(getIsStandalone)
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -16,11 +20,6 @@ export function usePwaInstall() {
     }
 
     window.addEventListener('beforeinstallprompt', handler)
-
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true)
-    }
-
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 

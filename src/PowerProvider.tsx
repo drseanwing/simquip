@@ -1,11 +1,6 @@
-import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { getContext, type IContext } from '@microsoft/power-apps/app'
-
-const PowerContext = createContext<IContext | null>(null)
-
-export function usePowerContext(): IContext | null {
-  return useContext(PowerContext)
-}
+import { PowerContext } from './powerContext'
 
 interface PowerProviderProps {
   children: ReactNode
@@ -22,9 +17,5 @@ export default function PowerProvider({ children }: PowerProviderProps) {
     return <div>Loading...</div>
   }
 
-  return (
-    <PowerContext.Provider value={context}>
-      {children}
-    </PowerContext.Provider>
-  )
+  return <PowerContext.Provider value={context}>{children}</PowerContext.Provider>
 }
