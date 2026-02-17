@@ -12,11 +12,11 @@ import {
   Title2,
   tokens,
 } from '@fluentui/react-components'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { EquipmentStatus, OwnerType } from '../types'
 import type { Equipment } from '../types'
 import { validateEquipment } from '../services/validators'
-import { mockTeams, mockPersons, mockLocations } from '../services/mockData'
+import { mockEquipment, mockTeams, mockPersons, mockLocations } from '../services/mockData'
 
 const useStyles = makeStyles({
   page: {
@@ -44,10 +44,6 @@ const useStyles = makeStyles({
     color: tokens.colorPaletteGreenForeground1,
     fontWeight: tokens.fontWeightSemibold,
   },
-  note: {
-    color: tokens.colorNeutralForeground3,
-    fontSize: tokens.fontSizeBase200,
-  },
 })
 
 function getFieldError(
@@ -58,24 +54,43 @@ function getFieldError(
   return err?.message
 }
 
-export default function EquipmentCreatePage() {
+export default function EquipmentEditPage() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
 
-  const [name, setName] = useState('')
-  const [equipmentCode, setEquipmentCode] = useState('')
-  const [description, setDescription] = useState('')
-  const [ownerType, setOwnerType] = useState<OwnerType>(OwnerType.Team)
-  const [ownerTeamId, setOwnerTeamId] = useState('')
-  const [ownerPersonId, setOwnerPersonId] = useState('')
-  const [contactPersonId, setContactPersonId] = useState('')
-  const [homeLocationId, setHomeLocationId] = useState('')
-  const [status, setStatus] = useState<EquipmentStatus>(EquipmentStatus.Available)
+  const existing = mockEquipment.find((e) => e.equipmentId === id)
+
+  const [name, setName] = useState(existing?.name ?? '')
+  const [equipmentCode, setEquipmentCode] = useState(existing?.equipmentCode ?? '')
+  const [description, setDescription] = useState(existing?.description ?? '')
+  const [ownerType, setOwnerType] = useState<OwnerType>(existing?.ownerType ?? OwnerType.Team)
+  const [ownerTeamId, setOwnerTeamId] = useState(existing?.ownerTeamId ?? '')
+  const [ownerPersonId, setOwnerPersonId] = useState(existing?.ownerPersonId ?? '')
+  const [contactPersonId, setContactPersonId] = useState(existing?.contactPersonId ?? '')
+  const [homeLocationId, setHomeLocationId] = useState(existing?.homeLocationId ?? '')
+  const [status, setStatus] = useState<EquipmentStatus>(
+    existing?.status ?? EquipmentStatus.Available,
+  )
   const [errors, setErrors] = useState<Array<{ field?: string; message: string }>>([])
   const [showSuccess, setShowSuccess] = useState(false)
 
   const activeTeams = mockTeams.filter((t) => t.active)
   const activePersons = mockPersons.filter((p) => p.active)
+
+  if (!existing) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.header}>
+          <Button appearance="subtle" onClick={() => void navigate('/equipment')}>
+            Back
+          </Button>
+          <Title2 as="h1">Equipment Not Found</Title2>
+        </div>
+        <Text>No equipment found with ID: {id}</Text>
+      </div>
+    )
+  }
 
   const handleOwnerTypeChange = (value: string) => {
     const newOwnerType = value as OwnerType
@@ -89,7 +104,6 @@ export default function EquipmentCreatePage() {
 
   const handleOwnerTeamChange = (value: string) => {
     setOwnerTeamId(value)
-    // Default home location from team's main location
     if (value) {
       const team = mockTeams.find((t) => t.teamId === value)
       if (team && !homeLocationId) {
@@ -100,6 +114,7 @@ export default function EquipmentCreatePage() {
 
   const handleSave = () => {
     const equipment: Partial<Equipment> = {
+      equipmentId: id,
       name: name.trim(),
       equipmentCode: equipmentCode.trim(),
       description: description.trim(),
@@ -109,10 +124,10 @@ export default function EquipmentCreatePage() {
       contactPersonId: contactPersonId || undefined,
       homeLocationId: homeLocationId || undefined,
       status,
-      parentEquipmentId: null,
-      quickStartFlowChartJson: '{}',
-      contentsListJson: '[]',
-      active: true,
+      parentEquipmentId: existing.parentEquipmentId,
+      quickStartFlowChartJson: existing.quickStartFlowChartJson,
+      contentsListJson: existing.contentsListJson,
+      active: existing.active,
     }
 
     const validationErrors = validateEquipment(equipment)
@@ -130,7 +145,7 @@ export default function EquipmentCreatePage() {
   }
 
   const handleCancel = () => {
-    void navigate('/equipment')
+    void navigate(`/equipment/${id}`)
   }
 
   return (
@@ -139,11 +154,11 @@ export default function EquipmentCreatePage() {
         <Button appearance="subtle" onClick={handleCancel}>
           Back
         </Button>
-        <Title2 as="h1">Create Equipment</Title2>
+        <Title2 as="h1">Edit Equipment</Title2>
       </div>
 
       {showSuccess && (
-        <Text className={styles.successMessage}>Equipment created successfully!</Text>
+        <Text className={styles.successMessage}>Equipment updated successfully!</Text>
       )}
 
       <div className={styles.form}>
