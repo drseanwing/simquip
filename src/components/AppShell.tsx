@@ -12,6 +12,7 @@ const navItems = [
   { path: '/', label: 'Dashboard' },
   { path: '/equipment', label: 'Equipment' },
   { path: '/locations', label: 'Locations' },
+  { path: '/people', label: 'People' },
   { path: '/teams', label: 'Teams' },
   { path: '/loans', label: 'Loans' },
 ]
@@ -59,13 +60,6 @@ const useStyles = makeStyles({
     flex: 1,
     minWidth: 0,
   },
-  tab: {
-    color: '#ffffff',
-    fontWeight: 500,
-    ':hover': {
-      color: '#d5d65b',
-    },
-  },
   gradientBar: {
     height: '4px',
     background:
@@ -81,6 +75,7 @@ const useStyles = makeStyles({
 function resolveSelectedTab(pathname: string): string {
   if (pathname.startsWith('/equipment')) return '/equipment'
   if (pathname.startsWith('/locations')) return '/locations'
+  if (pathname.startsWith('/people')) return '/people'
   if (pathname.startsWith('/teams')) return '/teams'
   if (pathname.startsWith('/loans')) return '/loans'
   return '/'
@@ -113,7 +108,7 @@ export default function AppShell() {
             size="large"
           >
             {navItems.map((item) => (
-              <Tab key={item.path} value={item.path} className={styles.tab}>
+              <Tab key={item.path} value={item.path}>
                 {item.label}
               </Tab>
             ))}
