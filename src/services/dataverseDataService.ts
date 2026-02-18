@@ -261,17 +261,16 @@ export class DataverseDataService<T extends Record<string, unknown>>
         dvValue = choiceMapper.toDb(dvValue)
       }
 
-      // Lookup columns: Dataverse expects the bind syntax for lookups,
-      // but the SDK handles this via the navigation property approach.
-      // For now, we set the _value column directly; if the SDK requires
-      // @odata.bind we'll adapt in the lookup config.
+      // Lookup columns: the _xxx_value format is read-only in OData.
+      // For writes, use the navigation property logical name (strip
+      // leading '_' and trailing '_value'). Null / empty-string / undefined
+      // all mean "clear the lookup".
       if (dvCol.startsWith('_') && dvCol.endsWith('_value')) {
-        // Convert lookup: set the navigation property bind format
-        const navProp = dvCol.slice(1, -6) // strip leading _ and trailing _value
-        if (dvValue === null) {
+        const navProp = dvCol.slice(1, -6) // e.g. '_redi_buildingid_value' → 'redi_buildingid'
+        if (dvValue == null || dvValue === '') {
           record[navProp] = null
         } else {
-          record[dvCol] = dvValue
+          record[navProp] = dvValue
         }
         continue
       }
@@ -307,6 +306,11 @@ export class DataverseDataService<T extends Record<string, unknown>>
 
     // Filtering
     const filters: string[] = []
+
+    // App-isolation filter (e.g., exclude Trolley Audit records on shared tables)
+    if (this.adapter.defaultFilter) {
+      filters.push(this.adapter.defaultFilter)
+    }
 
     if (options?.search && this.adapter.searchFields.length > 0) {
       const term = options.search.replace(/'/g, "''")

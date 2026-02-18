@@ -69,6 +69,8 @@ export interface ColumnAdapter<T> {
   /** Columns that exist in the TS model but NOT on the Dataverse entity.
    *  Excluded from $select; always return null from reads; skipped on writes. */
   virtualColumns?: Set<keyof T & string>
+  /** OData $filter always applied on list queries (e.g., app-isolation filter for shared tables) */
+  defaultFilter?: string
   /** Fields to search when ListOptions.search is provided */
   searchFields: (keyof T & string)[]
 }
@@ -203,6 +205,7 @@ export const locationAdapter: ColumnAdapter<{
     contactPersonId: '_redi_contactpersonid_value',
     description: 'redi_sq_description',
   },
+  defaultFilter: '_redi_sq_buildingid_value ne null',
   searchFields: ['name', 'description'],
 }
 
@@ -247,6 +250,7 @@ export const equipmentAdapter: ColumnAdapter<{
     ownerType: choiceMapper(ownerTypeMap),
     status: choiceMapper(equipmentStatusMap),
   },
+  defaultFilter: 'redi_sq_active ne null',
   searchFields: ['name', 'equipmentCode', 'description'],
 }
 
