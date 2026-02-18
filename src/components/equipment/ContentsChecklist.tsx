@@ -113,10 +113,11 @@ export default function ContentsChecklist({
   }
 
   const handleCheck = (id: string, checked: boolean) => {
+    const lastChecked = checked ? new Date().toISOString() : null
     if (editing) {
-      setEditItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked } : i)))
+      setEditItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked, lastChecked } : i)))
     } else {
-      const updated = items.map((i) => (i.id === id ? { ...i, checked } : i))
+      const updated = items.map((i) => (i.id === id ? { ...i, checked, lastChecked } : i))
       onSave(updated)
     }
   }
@@ -221,6 +222,7 @@ export default function ContentsChecklist({
             {editing && <TableHeaderCell style={{ width: 40 }} />}
             <TableHeaderCell style={{ width: 50 }}>Done</TableHeaderCell>
             <TableHeaderCell>Item</TableHeaderCell>
+            <TableHeaderCell style={{ width: 140 }}>Last Checked</TableHeaderCell>
             {editing && <TableHeaderCell style={{ width: 90 }}>Actions</TableHeaderCell>}
           </TableRow>
         </TableHeader>
@@ -260,14 +262,19 @@ export default function ContentsChecklist({
                     style={{ width: '100%' }}
                   />
                 ) : (
-                  <Text
-                    style={{
-                      textDecoration: item.checked ? 'line-through' : undefined,
-                      color: item.checked ? tokens.colorNeutralForeground3 : undefined,
-                    }}
-                    onClick={() => editing && startInlineEdit(item)}
-                  >
+                  <Text onClick={() => editing && startInlineEdit(item)}>
                     {item.label}
+                  </Text>
+                )}
+              </TableCell>
+              <TableCell>
+                {item.lastChecked ? (
+                  <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                    {new Date(item.lastChecked).toLocaleDateString()}
+                  </Text>
+                ) : (
+                  <Text size={200} style={{ color: tokens.colorNeutralForeground3, fontStyle: 'italic' }}>
+                    —
                   </Text>
                 )}
               </TableCell>

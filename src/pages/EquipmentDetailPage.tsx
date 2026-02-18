@@ -1,17 +1,29 @@
 import { lazy, Suspense, useState, useCallback } from 'react'
 import {
   Button,
+  Field,
+  Input,
   makeStyles,
+  Radio,
+  RadioGroup,
+  Select,
   Spinner,
   Tab,
   TabList,
   Text,
+  Textarea,
   Title3,
   tokens,
 } from '@fluentui/react-components'
-import { EditRegular } from '@fluentui/react-icons'
+import {
+  EditRegular,
+  SaveRegular,
+  DismissRegular,
+  PlayRegular,
+} from '@fluentui/react-icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  EquipmentStatus,
   MediaType,
   OwnerType,
   parseContentsJson,
@@ -19,7 +31,7 @@ import {
   parseFlowChartJson,
   serializeFlowChart,
 } from '../types'
-import type { ContentsItem, EquipmentMedia, FlowChartData, Person, Team, Location } from '../types'
+import type { ContentsItem, Equipment, EquipmentMedia, FlowChartData, Person, Team, Location } from '../types'
 import type { SelectTabData, SelectTabEvent } from '@fluentui/react-components'
 import StatusBadge from '../components/StatusBadge'
 import ImageGallery from '../components/equipment/ImageGallery'
@@ -29,9 +41,12 @@ import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import { useServices } from '../contexts/ServiceContext'
 import { useAsyncData } from '../hooks/useAsyncData'
+import { useAuth, canEditEquipment } from '../contexts/AuthContext'
+import { validateEquipment } from '../services/validators'
 
 const FlowChartViewer = lazy(() => import('../components/equipment/FlowChartViewer'))
 const FlowChartEditor = lazy(() => import('../components/equipment/FlowChartEditor'))
+const FlowChartWizard = lazy(() => import('../components/equipment/FlowChartWizard'))
 
 const useStyles = makeStyles({
   page: {
@@ -103,7 +118,22 @@ const useStyles = makeStyles({
   flowchartToolbar: {
     display: 'flex',
     justifyContent: 'flex-end',
+    gap: tokens.spacingHorizontalS,
     marginBottom: tokens.spacingVerticalS,
+  },
+  editForm: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    maxWidth: '640px',
+  },
+  editActions: {
+    display: 'flex',
+    gap: tokens.spacingHorizontalM,
+    paddingTop: tokens.spacingVerticalM,
+  },
+  errorText: {
+    color: tokens.colorPaletteRedForeground1,
   },
 })
 
@@ -141,6 +171,7 @@ export default function EquipmentDetailPage() {
   const styles = useStyles()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { user } = useAuth()
   const {
     equipmentService,
     equipmentMediaService,
@@ -150,10 +181,25 @@ export default function EquipmentDetailPage() {
   } = useServices()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
   const [flowchartEditing, setFlowchartEditing] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
+
+  // Inline edit state for details tab
+  const [detailsEditing, setDetailsEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editCode, setEditCode] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editOwnerType, setEditOwnerType] = useState<OwnerType>(OwnerType.Team)
+  const [editOwnerTeamId, setEditOwnerTeamId] = useState('')
+  const [editOwnerPersonId, setEditOwnerPersonId] = useState('')
+  const [editContactPersonId, setEditContactPersonId] = useState('')
+  const [editHomeLocationId, setEditHomeLocationId] = useState('')
+  const [editStatus, setEditStatus] = useState<EquipmentStatus>(EquipmentStatus.Available)
+  const [editErrors, setEditErrors] = useState<Array<{ field?: string; message: string }>>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [contentsOverride, setContentsOverride] = useState<string | null>(null)
   const [flowchartOverride, setFlowchartOverride] = useState<string | null>(null)
-  const [mediaOverride, setMediaOverride] = useState<EquipmentMedia[] | null>(null)
 
   const fetcher = useCallback(async () => {
     if (!id) throw new Error('Invalid URL')
@@ -195,38 +241,109 @@ export default function EquipmentDetailPage() {
   }
 
   const { equipment, children } = data
+  const canEdit = canEditEquipment(user, equipment.ownerPersonId, equipment.ownerTeamId)
 
   const contentsJson = contentsOverride ?? equipment.contentsListJson
   const contentsItems = parseContentsJson(contentsJson)
   const flowchartJson = flowchartOverride ?? equipment.quickStartFlowChartJson
   const flowchartData = parseFlowChartJson(flowchartJson)
 
-  const equipmentImages = (mediaOverride ?? data.media)
+  const equipmentImages = data.media
     .filter((m) => m.equipmentId === equipment.equipmentId && m.mediaType === MediaType.Image)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
-  const equipmentMedia = (mediaOverride ?? data.media)
+  const equipmentMedia = data.media
     .filter((m) => m.equipmentId === equipment.equipmentId)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
-  const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
-    setSelectedTab(data.value as TabValue)
-  }
-
-  const handleEdit = () => {
-    void navigate(`/equipment/${id}/edit`)
+  const handleTabSelect = (_event: SelectTabEvent, tabData: SelectTabData) => {
+    setSelectedTab(tabData.value as TabValue)
   }
 
   const handleBack = () => {
     void navigate('/equipment')
   }
 
+  // --- Details inline editing ---
+  const startDetailsEdit = () => {
+    setEditName(equipment.name)
+    setEditCode(equipment.equipmentCode)
+    setEditDescription(equipment.description)
+    setEditOwnerType(equipment.ownerType)
+    setEditOwnerTeamId(equipment.ownerTeamId ?? '')
+    setEditOwnerPersonId(equipment.ownerPersonId ?? '')
+    setEditContactPersonId(equipment.contactPersonId)
+    setEditHomeLocationId(equipment.homeLocationId)
+    setEditStatus(equipment.status)
+    setEditErrors([])
+    setSaveError(null)
+    setDetailsEditing(true)
+  }
+
+  const cancelDetailsEdit = () => {
+    setDetailsEditing(false)
+    setEditErrors([])
+    setSaveError(null)
+  }
+
+  const handleDetailsSave = async () => {
+    if (saving) return
+    const patch: Partial<Equipment> = {
+      equipmentId: equipment.equipmentId,
+      name: editName.trim(),
+      equipmentCode: editCode.trim(),
+      description: editDescription.trim(),
+      ownerType: editOwnerType,
+      ownerTeamId: editOwnerType === OwnerType.Team ? editOwnerTeamId || null : null,
+      ownerPersonId: editOwnerType === OwnerType.Person ? editOwnerPersonId || null : null,
+      contactPersonId: editContactPersonId || '',
+      homeLocationId: editHomeLocationId || '',
+      status: editStatus,
+      parentEquipmentId: equipment.parentEquipmentId,
+      keyImageUrl: equipment.keyImageUrl,
+      quickStartFlowChartJson: equipment.quickStartFlowChartJson,
+      contentsListJson: equipment.contentsListJson,
+      active: equipment.active,
+    }
+
+    const validationErrors = validateEquipment(patch)
+    if (validationErrors.length > 0) {
+      setEditErrors(validationErrors.map((e) => ({ field: e.field, message: e.message })))
+      return
+    }
+
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await equipmentService.update(id, patch)
+      setDetailsEditing(false)
+      reload()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleOwnerTypeChange = (value: string) => {
+    const ot = value as OwnerType
+    setEditOwnerType(ot)
+    if (ot === OwnerType.Team) setEditOwnerPersonId('')
+    else setEditOwnerTeamId('')
+  }
+
+  const getFieldError = (fieldName: string): string | undefined => {
+    return editErrors.find((e) => e.field === fieldName)?.message
+  }
+
+  // --- Contents ---
   const handleContentsSave = (items: ContentsItem[]) => {
     const json = serializeContents(items)
     setContentsOverride(json)
     void equipmentService.update(id, { contentsListJson: json })
   }
 
+  // --- Flowchart ---
   const handleFlowchartSave = (flowData: FlowChartData) => {
     const json = serializeFlowChart(flowData)
     setFlowchartOverride(json)
@@ -234,44 +351,183 @@ export default function EquipmentDetailPage() {
     void equipmentService.update(id, { quickStartFlowChartJson: json })
   }
 
-  const handleMediaChange = (media: EquipmentMedia[]) => {
-    setMediaOverride(media)
+  // --- Media persistence ---
+  const handleMediaChange = async (updatedMedia: EquipmentMedia[]) => {
+    // Find newly added media (local IDs start with 'em-local-')
+    const newMedia = updatedMedia.filter((m) => m.equipmentMediaId.startsWith('em-local-'))
+    // Find deleted media
+    const existingIds = new Set(updatedMedia.map((m) => m.equipmentMediaId))
+    const deletedMedia = data.media.filter((m) => !existingIds.has(m.equipmentMediaId))
+
+    // Persist new media records to Dataverse
+    for (const m of newMedia) {
+      try {
+        await equipmentMediaService.create({
+          equipmentId: equipment.equipmentId,
+          mediaType: m.mediaType,
+          fileName: m.fileName,
+          mimeType: m.mimeType,
+          fileUrl: m.fileUrl,
+          sortOrder: m.sortOrder,
+        } as Partial<EquipmentMedia>)
+      } catch {
+        // Continue with other media even if one fails
+      }
+    }
+
+    // Delete removed media from Dataverse
+    for (const m of deletedMedia) {
+      try {
+        await equipmentMediaService.delete(m.equipmentMediaId)
+      } catch {
+        // Continue
+      }
+    }
+
+    // Reload to get server-assigned IDs
+    reload()
   }
+
+  const activeTeams = data.teams.filter((t) => t.active)
+  const activePersons = data.persons.filter((p) => p.active)
+
+  const renderDetailsView = () => (
+    <div className={styles.detailsPanel}>
+      <div className={styles.infoGrid}>
+        <Text className={styles.label}>Owner</Text>
+        <Text>
+          {getOwnerDisplay(
+            equipment.ownerType,
+            equipment.ownerTeamId,
+            equipment.ownerPersonId,
+            data.teams,
+            data.persons,
+          )}
+        </Text>
+        <Text className={styles.label}>Contact Person</Text>
+        <Text>{getPersonName(equipment.contactPersonId, data.persons)}</Text>
+        <Text className={styles.label}>Home Location</Text>
+        <Text>{getLocationName(equipment.homeLocationId, data.locations)}</Text>
+        <Text className={styles.label}>Description</Text>
+        <Text>{equipment.description || 'No description.'}</Text>
+      </div>
+      <div className={styles.gallerySection}>
+        <ImageGallery images={equipmentImages} />
+      </div>
+    </div>
+  )
+
+  const renderDetailsEdit = () => (
+    <div className={styles.editForm}>
+      {saveError && <Text className={styles.errorText}>{saveError}</Text>}
+
+      <Field label="Name" required validationMessage={getFieldError('name')} validationState={getFieldError('name') ? 'error' : 'none'}>
+        <Input value={editName} onChange={(_, d) => setEditName(d.value)} />
+      </Field>
+
+      <Field label="Equipment Code" required validationMessage={getFieldError('equipmentCode')} validationState={getFieldError('equipmentCode') ? 'error' : 'none'}>
+        <Input value={editCode} onChange={(_, d) => setEditCode(d.value)} />
+      </Field>
+
+      <Field label="Description">
+        <Textarea value={editDescription} onChange={(_, d) => setEditDescription(d.value)} />
+      </Field>
+
+      <Field label="Owner Type" required>
+        <RadioGroup value={editOwnerType} onChange={(_, d) => handleOwnerTypeChange(d.value)} layout="horizontal">
+          <Radio value={OwnerType.Team} label="Team" />
+          <Radio value={OwnerType.Person} label="Person" />
+        </RadioGroup>
+      </Field>
+
+      {editOwnerType === OwnerType.Team && (
+        <Field label="Owner Team" required validationMessage={getFieldError('ownerTeamId')} validationState={getFieldError('ownerTeamId') ? 'error' : 'none'}>
+          <Select value={editOwnerTeamId} onChange={(_, d) => setEditOwnerTeamId(d.value)}>
+            <option value="">-- Select a team --</option>
+            {activeTeams.map((team) => (
+              <option key={team.teamId} value={team.teamId}>{team.name}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {editOwnerType === OwnerType.Person && (
+        <Field label="Owner Person" required validationMessage={getFieldError('ownerPersonId')} validationState={getFieldError('ownerPersonId') ? 'error' : 'none'}>
+          <Select value={editOwnerPersonId} onChange={(_, d) => setEditOwnerPersonId(d.value)}>
+            <option value="">-- Select a person --</option>
+            {activePersons.map((person) => (
+              <option key={person.personId} value={person.personId}>{person.displayName}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      <Field label="Contact Person">
+        <Select value={editContactPersonId} onChange={(_, d) => setEditContactPersonId(d.value)}>
+          <option value="">-- Select a contact --</option>
+          {activePersons.map((person) => (
+            <option key={person.personId} value={person.personId}>{person.displayName}</option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label="Home Location">
+        <Select value={editHomeLocationId} onChange={(_, d) => setEditHomeLocationId(d.value)}>
+          <option value="">-- Select a location --</option>
+          {data.locations.map((loc) => (
+            <option key={loc.locationId} value={loc.locationId}>{loc.name}</option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label="Status" required>
+        <Select value={editStatus} onChange={(_, d) => setEditStatus(d.value as EquipmentStatus)}>
+          <option value={EquipmentStatus.Available}>Available</option>
+          <option value={EquipmentStatus.InUse}>In Use</option>
+          <option value={EquipmentStatus.UnderMaintenance}>Under Maintenance</option>
+          <option value={EquipmentStatus.Retired}>Retired</option>
+        </Select>
+      </Field>
+
+      <div className={styles.editActions}>
+        <Button
+          appearance="primary"
+          icon={<SaveRegular />}
+          onClick={() => void handleDetailsSave()}
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+        <Button icon={<DismissRegular />} onClick={cancelDetailsEdit} disabled={saving}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
 
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'details':
         return (
-          <div className={styles.detailsPanel}>
-            <div className={styles.infoGrid}>
-              <Text className={styles.label}>Owner</Text>
-              <Text>
-                {getOwnerDisplay(
-                  equipment.ownerType,
-                  equipment.ownerTeamId,
-                  equipment.ownerPersonId,
-                  data.teams,
-                  data.persons,
-                )}
-              </Text>
-              <Text className={styles.label}>Contact Person</Text>
-              <Text>{getPersonName(equipment.contactPersonId, data.persons)}</Text>
-              <Text className={styles.label}>Home Location</Text>
-              <Text>{getLocationName(equipment.homeLocationId, data.locations)}</Text>
-              <Text className={styles.label}>Description</Text>
-              <Text>{equipment.description || 'No description.'}</Text>
-            </div>
-            <div className={styles.gallerySection}>
-              <ImageGallery images={equipmentImages} />
-            </div>
-          </div>
+          <>
+            {!detailsEditing && canEdit && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: tokens.spacingVerticalM }}>
+                <Button appearance="primary" icon={<EditRegular />} onClick={startDetailsEdit}>
+                  Edit Details
+                </Button>
+              </div>
+            )}
+            {detailsEditing ? renderDetailsEdit() : renderDetailsView()}
+          </>
         )
       case 'contents':
-        return <ContentsChecklist items={contentsItems} onSave={handleContentsSave} />
+        return <ContentsChecklist items={contentsItems} onSave={handleContentsSave} readOnly={!canEdit} />
       case 'quickstart':
         return (
           <Suspense fallback={<Spinner label="Loading flowchart..." />}>
-            {flowchartEditing ? (
+            {wizardOpen ? (
+              <FlowChartWizard data={flowchartData} onClose={() => setWizardOpen(false)} />
+            ) : flowchartEditing ? (
               <FlowChartEditor
                 data={flowchartData}
                 onSave={handleFlowchartSave}
@@ -280,9 +536,16 @@ export default function EquipmentDetailPage() {
             ) : (
               <>
                 <div className={styles.flowchartToolbar}>
-                  <Button icon={<EditRegular />} onClick={() => setFlowchartEditing(true)}>
-                    Edit Flowchart
-                  </Button>
+                  {flowchartData && flowchartData.nodes.length > 0 && (
+                    <Button icon={<PlayRegular />} onClick={() => setWizardOpen(true)}>
+                      Run Wizard
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Button icon={<EditRegular />} onClick={() => setFlowchartEditing(true)}>
+                      Edit Flowchart
+                    </Button>
+                  )}
                 </div>
                 <FlowChartViewer data={flowchartData} />
               </>
@@ -290,7 +553,7 @@ export default function EquipmentDetailPage() {
           </Suspense>
         )
       case 'media':
-        return <MediaManager media={equipmentMedia} onMediaChange={handleMediaChange} />
+        return <MediaManager media={equipmentMedia} onMediaChange={(m) => void handleMediaChange(m)} readOnly={!canEdit} />
       case 'children':
         if (children.length === 0) {
           return <Text className={styles.placeholder}>No nested equipment.</Text>
@@ -327,11 +590,6 @@ export default function EquipmentDetailPage() {
         <Title3 as="h1">{equipment.name}</Title3>
         <Text>({equipment.equipmentCode})</Text>
         <StatusBadge status={equipment.status} />
-        <div className={styles.headerActions}>
-          <Button appearance="primary" onClick={handleEdit}>
-            Edit
-          </Button>
-        </div>
       </div>
 
       <TabList selectedValue={selectedTab} onTabSelect={handleTabSelect}>
