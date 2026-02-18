@@ -23,6 +23,7 @@
 11. [Licensing & Limits](#11-licensing--limits)
 12. [Common Pitfalls Quick Reference](#12-common-pitfalls-quick-reference)
 13. [Recurring Cross-Project Issues](#13-recurring-cross-project-issues)
+14. [CSDL $metadata Reference](#14-csdl-metadata-reference)
 
 ---
 
@@ -919,6 +920,7 @@ During Code App migration (govman): Disable (don't delete) legacy flows for 2 we
 | 18 | Chrome localhost block | SDK dev broken | Configure `LocalNetworkAccessAllowedForUrls` | ALL |
 | 19 | Port not 3000 | SDK middleware fails | Set `server.port: 3000` in vite config | ALL |
 | 20 | No SDK init | All data ops fail | Wrap app in PowerProvider | ALL |
+| 21 | Guessing EntitySetNames | HTTP 404/500 on data ops | Download and search `$metadata` document | ALL |
 
 ---
 
@@ -936,6 +938,7 @@ These issues occurred in **multiple** repositories independently, confirming the
 | **Code Apps not in solution** | trolleys, simquip, and govman all documented that Code Apps are NOT automatically added to solutions, requiring `--solutionName` flag or manual addition. | Cannot promote between environments |
 | **Premium license requirement** | All repos documented the $20/user/month requirement and that M365 seeded licenses do NOT include Code Apps. | Budget planning errors |
 | **Chrome localhost blocking** | Dec 2025+ browser change documented in simquip, govman, trolleys. Requires enterprise policy configuration. | Local development broken in managed environments |
+| **$metadata as source of truth** | The CSDL `$metadata` document at `/api/data/v9.2/$metadata` is the definitive schema for all EntityTypes, Properties, NavigationProperties, Actions, and Functions. All names are case-sensitive. ALWAYS consult before writing Web API code. | Silent failures from wrong names, 404/500 errors |
 
 ### Tier 2: Occurred in 2-3 Repositories
 
@@ -1014,6 +1017,207 @@ my-code-app/
 | Option Value Prefix | `91352` |
 | Region | `prod` (Australia) |
 | Auth User | `Sean.Wing@health.qld.gov.au` |
+
+---
+
+## 14. CSDL $metadata Reference
+
+The CSDL (Common Schema Definition Language) `$metadata` document is the **authoritative source of truth** for every table, field, relationship, action, and function available in a Dataverse environment's Web API.
+
+### 14.1 Critical Directives
+
+| # | Directive | Severity |
+|---|-----------|----------|
+| 1 | **ALWAYS consult the `$metadata` document to verify exact EntityType names, Property names, NavigationProperty names, and EntitySetNames before writing any Web API code.** All names are case-sensitive. | CRITICAL |
+| 2 | **ALWAYS use `?annotations=true`** when downloading `$metadata` for reference. Annotations add field descriptions, read-only markers, and display names. | HIGH |
+| 3 | **NEVER assume EntitySetName equals the table logical name plus "s".** Always verify from the `EntityContainer/EntitySet` element in `$metadata` or the service document root. | CRITICAL |
+| 4 | **NEVER assume OptionSet/choice field values are in the `$metadata` EnumTypes.** Business table choice values (100000000+) are NOT in the CSDL. Query the `EntityDefinitions` metadata API instead. | HIGH |
+| 5 | **ALWAYS use NavigationProperty names (not lookup property names) when setting lookup values.** The `$metadata` shows the `ReferentialConstraint` mapping between `_field_value` (read-only) and the NavigationProperty (writable). | CRITICAL |
+
+### 14.2 Endpoint URL
+
+```
+https://{org}.api.crm.dynamics.com/api/data/v9.2/$metadata?annotations=true
+```
+
+**REdI Development environment:**
+```
+https://redi.crm6.dynamics.com/api/data/v9.2/$metadata?annotations=true
+```
+
+The **service document root** (JSON list of all EntitySets) is at:
+```
+https://redi.crm6.dynamics.com/api/data/v9.2/
+```
+
+> This is an authenticated endpoint. A valid OAuth 2.0 Bearer token with Dataverse access is required.
+
+### 14.3 What the $metadata Document Contains
+
+The document is XML in the `Microsoft.Dynamics.CRM` namespace (aliased as `mscrm`). Key elements:
+
+| Element | Purpose | Example |
+|---------|---------|---------|
+| `EntityType` | Table definition with Key, Properties, NavigationProperties | `<EntityType Name="account">` |
+| `Property` | Column definition with type | `<Property Name="name" Type="Edm.String"/>` |
+| `NavigationProperty` | Relationship definition | `<NavigationProperty Name="primarycontactid" Type="mscrm.contact"/>` |
+| `EntityContainer/EntitySet` | Maps EntityType to queryable URL segment | `<EntitySet Name="accounts" EntityType="mscrm.account"/>` |
+| `Action` | POST operation (may have side effects) | `<Action Name="WinOpportunity">` |
+| `Function` | GET operation (no side effects) | `<Function Name="WhoAmI">` |
+| `ComplexType` | Keyless structured return type | `<ComplexType Name="WhoAmIResponse">` |
+| `EnumType` | System-level enumeration | `<EnumType Name="AccessRights">` |
+
+### 14.4 Common Lookup Patterns in $metadata
+
+**Reading a lookup** (from `Property`):
+```xml
+<Property Name="_primarycontactid_value" Type="Edm.Guid"/>
+```
+The `_name_value` pattern indicates a read-only computed GUID for the lookup foreign key.
+
+**Writing a lookup** (from `NavigationProperty`):
+```xml
+<NavigationProperty Name="primarycontactid" Type="mscrm.contact" Partner="account_primary_contact">
+  <ReferentialConstraint Property="_primarycontactid_value" ReferencedProperty="contactid"/>
+</NavigationProperty>
+```
+The `ReferentialConstraint` maps the read-only `_primarycontactid_value` to the writable `primarycontactid` NavigationProperty.
+
+**In API calls:**
+```javascript
+// READ — returns _primarycontactid_value (GUID)
+GET /api/data/v9.2/accounts(id)?$select=_primarycontactid_value
+
+// WRITE — use NavigationProperty with @odata.bind
+PATCH /api/data/v9.2/accounts(id)
+{ "primarycontactid@odata.bind": "/contacts(target-guid)" }
+```
+
+### 14.5 Querying OptionSet/Choice Values
+
+The `$metadata` EnumTypes section contains only **system-level** enumerations (e.g., `AccessRights`, `ComponentType`). Business table choice values are NOT included.
+
+**To retrieve choice values for a specific field:**
+```
+GET /api/data/v9.2/EntityDefinitions(LogicalName='redi_tablename')/Attributes(LogicalName='redi_fieldname')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options)
+```
+
+**To retrieve a global option set:**
+```
+GET /api/data/v9.2/GlobalOptionSetDefinitions(Name='redi_optionsetname')
+```
+
+### 14.6 Downloading the $metadata Document
+
+#### Via PowerShell (Az Module)
+
+```powershell
+$environmentUrl = 'https://redi.crm6.dynamics.com/'
+$writeFileTo    = './metadata/redi-metadata.xml'
+
+# Authenticate via Azure CLI / Az Module
+if ($null -eq (Get-AzTenant -ErrorAction SilentlyContinue)) {
+   Connect-AzAccount | Out-Null
+}
+
+# Get token
+$secureToken = (Get-AzAccessToken -ResourceUrl $environmentUrl -AsSecureString).Token
+$token = ConvertFrom-SecureString -SecureString $secureToken -AsPlainText
+
+# Download
+$xmlHeaders = @{
+   'Authorization'    = 'Bearer ' + $token
+   'Accept'           = 'application/xml'
+   'OData-MaxVersion' = '4.0'
+   'OData-Version'    = '4.0'
+}
+
+$doc = [xml](Invoke-WebRequest `
+   -Uri ($environmentUrl + 'api/data/v9.2/$metadata?annotations=true') `
+   -Method Get -Headers $xmlHeaders).Content
+
+# Pretty-print and save
+$StringWriter = New-Object System.IO.StringWriter
+$XmlWriter = New-Object System.Xml.XmlTextWriter $StringWriter
+$xmlWriter.Formatting = 'indented'
+$xmlWriter.Indentation = 2
+$doc.WriteContentTo($XmlWriter)
+$XmlWriter.Flush(); $StringWriter.Flush()
+Set-Content -Path $writeFileTo -Value $StringWriter.ToString()
+```
+
+#### Via PAC CLI Token Extraction + curl
+
+Reuse the token extraction method from Section 7.3:
+
+```bash
+# Extract token from PAC CLI MSAL cache (see Section 7.3)
+TOKEN=$(python3 -c "
+import json, os, platform
+from pathlib import Path
+if platform.system() == 'Windows':
+    p = Path(os.environ['LOCALAPPDATA']) / 'Microsoft/PowerAppsCli/tokencache_msalv3.dat'
+else:
+    p = Path.home() / '.local/share/Microsoft/PowerAppsCli/tokencache_msalv3.dat'
+data = json.load(open(p))
+for k, v in data['AccessToken'].items():
+    if 'redi.crm6' in v.get('target', ''):
+        print(v['secret']); break
+")
+
+# Download $metadata
+curl -s "https://redi.crm6.dynamics.com/api/data/v9.2/\$metadata?annotations=true" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/xml" \
+  -o metadata/redi-metadata.xml
+```
+
+> **Tip**: VS Code may warn about XML symbol limits on large `$metadata` files. Set `xml.symbols.maxItemsComputed` to `500000` in VS Code settings.
+
+### 14.7 Using $metadata for LLM Agents
+
+| Task | How to Find in $metadata |
+|------|--------------------------|
+| Find EntitySetName for a table | Search `<EntitySet Name="` within `<EntityContainer>` for the matching `EntityType` |
+| Verify field name and type | Search `<Property Name="fieldname"` within the `<EntityType>` block |
+| Find NavigationProperty for a lookup | Search `<NavigationProperty Name="` within the `<EntityType>` block |
+| Determine lookup read/write mapping | Read the `<ReferentialConstraint>` inside the `<NavigationProperty>` |
+| Find Action/Function signature | Search `<Action Name="` or `<Function Name="` at the top level |
+| Check if an action is bound or unbound | `IsBound="true"` = entity-specific; absent = unbound (global) |
+| Find return type of a function | Read the `<ReturnType>` element — may reference a `ComplexType` |
+| Identify collection vs single navigation | `Type="Collection(mscrm.entity)"` = one-to-many; `Type="mscrm.entity"` = many-to-one |
+
+**Directive for agents**: When building or debugging Dataverse Web API calls, ALWAYS download and search the `$metadata` document BEFORE guessing at EntitySetNames, field names, or relationship navigation paths. The `$metadata` is the contract — runtime behavior matches it exactly.
+
+### 14.8 Key Gotchas
+
+| Gotcha | Detail |
+|--------|--------|
+| **Case sensitivity** | ALL names are case-sensitive. `Account` ≠ `account`. Property names are lowercase. NavigationProperty names are mixed case. |
+| **EntitySetName ≠ LogicalCollectionName** | `EntitySetName` is customisable and is what you use in API URLs. `LogicalCollectionName` is the SDK name (usually identical, not guaranteed). |
+| **Document size** | Without annotations: 2-5 MB. With `?annotations=true`: significantly larger. Environment-specific — custom tables/fields from solutions appear. |
+| **Lookup properties are read-only** | `_field_value` properties are `Edm.Guid` and computed. To SET a lookup, use the NavigationProperty with `@odata.bind`. |
+| **Polymorphic lookups** | One `_customerid_value` may map to MULTIPLE NavigationProperties (e.g., `customerid_account`, `customerid_contact`). |
+| **Many-to-many intersect tables** | Exist as EntityTypes but all properties are read-only. Operate on collection-valued NavigationProperties instead. |
+| **API version matters** | `v9.2` is current. The `$metadata` varies slightly between versions. Always use `v9.2`. |
+| **PAC CLI has no token export** | There is NO `pac auth token` command. Extract from MSAL cache (Section 7.3) or use Az PowerShell / Azure CLI. |
+
+### 14.9 External References
+
+| Resource | URL |
+|----------|-----|
+| Web API Service Documents (Microsoft) | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-service-documents |
+| Web API Types and Operations | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-types-operations |
+| Web API Navigation Properties | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-navigation-properties |
+| Web API Properties | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-properties |
+| Web API Actions | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-actions |
+| Web API Functions | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-functions |
+| Web API Complex & Enum Types | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/web-api-complex-enum-types |
+| Query Table Definitions (Metadata API) | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/query-metadata-web-api |
+| Use PowerShell with Dataverse Web API | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/use-ps-and-vscode-web-api |
+| Authenticate to Dataverse Web API | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/authenticate-web-api |
+| OData CSDL XML v4.01 (OASIS Standard) | https://docs.oasis-open.org/odata/odata-csdl-xml/v4.01/odata-csdl-xml-v4.01.html |
+| Dataverse Web API Reference | https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/reference/about |
 
 ---
 
