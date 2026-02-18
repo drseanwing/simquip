@@ -1,8 +1,8 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Button, makeStyles, Text, Title3, tokens } from '@fluentui/react-components'
 import { useNavigate, useParams } from 'react-router-dom'
 import { LoanStatus } from '../types'
-import type { Equipment, Person, Team } from '../types'
+import type { Equipment, LoanTransfer, Person, Team } from '../types'
 import StatusBadge from '../components/StatusBadge'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
@@ -97,6 +97,8 @@ export default function LoanDetailPage() {
   )
 
   const { data, loading, error, reload } = useAsyncData(fetcher, [])
+  const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
 
   if (!id) return <Text>Invalid URL</Text>
   if (loading) return <LoadingState />
@@ -111,23 +113,22 @@ export default function LoanDetailPage() {
     void navigate('/loans')
   }
 
-  const handleActivate = () => {
-    void loanTransferService
-      .update(id, { ...loan, status: LoanStatus.Active })
-      .then(() => navigate('/loans'))
+  const updateStatus = async (newStatus: LoanTransfer['status']) => {
+    if (updating) return
+    setUpdating(true)
+    setUpdateError(null)
+    try {
+      await loanTransferService.update(id, { status: newStatus } as Partial<LoanTransfer>)
+      void navigate('/loans')
+    } catch (err) {
+      setUpdateError(err instanceof Error ? err.message : 'Failed to update loan status')
+      setUpdating(false)
+    }
   }
 
-  const handleReturn = () => {
-    void loanTransferService
-      .update(id, { ...loan, status: LoanStatus.Returned })
-      .then(() => navigate('/loans'))
-  }
-
-  const handleCancel = () => {
-    void loanTransferService
-      .update(id, { ...loan, status: LoanStatus.Cancelled })
-      .then(() => navigate('/loans'))
-  }
+  const handleActivate = () => void updateStatus(LoanStatus.Active)
+  const handleReturn = () => void updateStatus(LoanStatus.Returned)
+  const handleCancel = () => void updateStatus(LoanStatus.Cancelled)
 
   const isDraft = loan.status === LoanStatus.Draft
   const isActive = loan.status === LoanStatus.Active
@@ -147,26 +148,30 @@ export default function LoanDetailPage() {
         <div className={styles.headerActions}>
           {isDraft && (
             <>
-              <Button appearance="primary" onClick={handleActivate}>
-                Activate
+              <Button appearance="primary" onClick={handleActivate} disabled={updating}>
+                {updating ? 'Updating...' : 'Activate'}
               </Button>
-              <Button appearance="secondary" onClick={handleCancel}>
+              <Button appearance="secondary" onClick={handleCancel} disabled={updating}>
                 Cancel Loan
               </Button>
             </>
           )}
           {isActive && (
             <>
-              <Button appearance="primary" onClick={handleReturn}>
-                Return
+              <Button appearance="primary" onClick={handleReturn} disabled={updating}>
+                {updating ? 'Updating...' : 'Return'}
               </Button>
-              <Button appearance="secondary" onClick={handleCancel}>
+              <Button appearance="secondary" onClick={handleCancel} disabled={updating}>
                 Cancel Loan
               </Button>
             </>
           )}
         </div>
       </div>
+
+      {updateError && (
+        <Text style={{ color: tokens.colorPaletteRedForeground1 }}>{updateError}</Text>
+      )}
 
       <div className={styles.infoGrid}>
         <Text className={styles.label}>Equipment</Text>
