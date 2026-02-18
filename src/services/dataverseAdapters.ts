@@ -71,6 +71,9 @@ export interface ColumnAdapter<T> {
   virtualColumns?: Set<keyof T & string>
   /** OData $filter always applied on list queries (e.g., app-isolation filter for shared tables) */
   defaultFilter?: string
+  /** For lookup columns (_xxx_value): maps TS key → target entity set name (e.g. 'redi_buildings')
+   *  Used to build @odata.bind references when writing lookup values. */
+  lookupTargets?: Partial<Record<keyof T & string, string>>
   /** Fields to search when ListOptions.search is provided */
   searchFields: (keyof T & string)[]
 }
@@ -131,6 +134,10 @@ export const teamAdapter: ColumnAdapter<{
     mainLocationId: '_redi_mainlocationid_value',
     active: 'redi_active',
   },
+  lookupTargets: {
+    mainContactPersonId: 'redi_persons',
+    mainLocationId: 'redi_locations',
+  },
   searchFields: ['name', 'teamCode'],
 }
 
@@ -148,6 +155,10 @@ export const teamMemberAdapter: ColumnAdapter<{
     teamId: '_redi_teamid_value',
     personId: '_redi_personid_value',
     role: 'redi_role',
+  },
+  lookupTargets: {
+    teamId: 'redi_teams',
+    personId: 'redi_persons',
   },
   searchFields: ['role'],
 }
@@ -183,6 +194,7 @@ export const levelAdapter: ColumnAdapter<{
     name: 'redi_level_name',
     sortOrder: 'redi_sortorder',
   },
+  lookupTargets: { buildingId: 'redi_buildings' },
   searchFields: ['name'],
 }
 
@@ -206,6 +218,11 @@ export const locationAdapter: ColumnAdapter<{
     description: 'redi_sq_description',
   },
   defaultFilter: '_redi_sq_buildingid_value ne null',
+  lookupTargets: {
+    buildingId: 'redi_buildings',
+    levelId: 'redi_levels',
+    contactPersonId: 'redi_persons',
+  },
   searchFields: ['name', 'description'],
 }
 
@@ -251,6 +268,13 @@ export const equipmentAdapter: ColumnAdapter<{
     status: choiceMapper(equipmentStatusMap),
   },
   defaultFilter: 'redi_sq_active ne null',
+  lookupTargets: {
+    ownerTeamId: 'redi_teams',
+    ownerPersonId: 'redi_persons',
+    contactPersonId: 'redi_persons',
+    homeLocationId: 'redi_locations',
+    parentEquipmentId: 'redi_equipments',
+  },
   searchFields: ['name', 'equipmentCode', 'description'],
 }
 
@@ -278,6 +302,7 @@ export const equipmentMediaAdapter: ColumnAdapter<{
   choices: {
     mediaType: choiceMapper(mediaTypeMap),
   },
+  lookupTargets: { equipmentId: 'redi_equipments' },
   searchFields: ['fileName'],
 }
 
@@ -305,6 +330,7 @@ export const locationMediaAdapter: ColumnAdapter<{
   choices: {
     mediaType: choiceMapper(mediaTypeMap),
   },
+  lookupTargets: { locationId: 'redi_locations' },
   searchFields: ['fileName'],
 }
 
@@ -340,6 +366,12 @@ export const loanTransferAdapter: ColumnAdapter<{
   choices: {
     reasonCode: choiceMapper(loanReasonMap),
     status: choiceMapper(loanStatusMap),
+  },
+  lookupTargets: {
+    equipmentId: 'redi_equipments',
+    originTeamId: 'redi_teams',
+    recipientTeamId: 'redi_teams',
+    approverPersonId: 'redi_persons',
   },
   searchFields: ['notes'],
 }

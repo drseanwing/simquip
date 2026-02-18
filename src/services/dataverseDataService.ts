@@ -262,15 +262,18 @@ export class DataverseDataService<T extends Record<string, unknown>>
       }
 
       // Lookup columns: the _xxx_value format is read-only in OData.
-      // For writes, use the navigation property logical name (strip
-      // leading '_' and trailing '_value'). Null / empty-string / undefined
-      // all mean "clear the lookup".
+      // For writes, use the @odata.bind annotation with a reference to
+      // the target entity set: "lookupCol@odata.bind": "/entitySet(guid)"
       if (dvCol.startsWith('_') && dvCol.endsWith('_value')) {
-        const navProp = dvCol.slice(1, -6) // e.g. '_redi_buildingid_value' → 'redi_buildingid'
+        const lookupCol = dvCol.slice(1, -6) // e.g. '_redi_buildingid_value' → 'redi_buildingid'
+        const bindKey = `${lookupCol}@odata.bind`
         if (dvValue == null || dvValue === '') {
-          record[navProp] = null
+          record[bindKey] = null
         } else {
-          record[navProp] = dvValue
+          const targetEntitySet = this.adapter.lookupTargets?.[tsKey as keyof T & string]
+          if (targetEntitySet) {
+            record[bindKey] = `/${targetEntitySet}(${dvValue as string})`
+          }
         }
         continue
       }
