@@ -1,18 +1,19 @@
 import { getClient } from '@microsoft/power-apps/data'
 import type { DataClient } from '@microsoft/power-apps/data'
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo'
 
 let clientInstance: DataClient | null = null
 
 /**
  * Returns the shared DataClient instance.
  * Must be called after the Power Apps SDK has been initialised.
+ * Passes the PAC-generated dataSourcesInfo so the SDK can resolve
+ * data source names to their connection configurations.
  */
 export function getDataClient(): DataClient {
   if (!clientInstance) {
-    // getClient() reads data-source registrations that pac code add-data-source wrote
-    // into power.config.json (databaseReferences). The runtime host injects the
-    // concrete connection details at launch.
-    clientInstance = getClient({})
+    clientInstance = getClient(dataSourcesInfo)
   }
   return clientInstance
 }

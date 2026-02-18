@@ -47,7 +47,7 @@ function invertMap(map: Record<string, number>): Record<number, string> {
 // ── Adapter type ─────────────────────────────────────────────────────────────
 
 export interface ColumnAdapter<T> {
-  /** Dataverse table logical name (e.g. 'redi_equipment') */
+  /** Data source name as registered in power.config.json (entitySetName, e.g. 'redi_equipments') */
   tableName: string
   /** TypeScript ID property name (e.g. 'equipmentId') */
   idField: keyof T & string
@@ -90,7 +90,7 @@ export const personAdapter: ColumnAdapter<{
   teamId: string | null
   active: boolean
 }> = {
-  tableName: 'redi_person',
+  tableName: 'redi_persons',
   idField: 'personId',
   idColumn: 'redi_personid',
   columns: {
@@ -114,7 +114,7 @@ export const teamAdapter: ColumnAdapter<{
   mainLocationId: string
   active: boolean
 }> = {
-  tableName: 'redi_team',
+  tableName: 'redi_teams',
   idField: 'teamId',
   idColumn: 'redi_teamid',
   columns: {
@@ -134,7 +134,7 @@ export const teamMemberAdapter: ColumnAdapter<{
   personId: string
   role: string
 }> = {
-  tableName: 'redi_teammember',
+  tableName: 'redi_teammembers',
   idField: 'teamMemberId',
   idColumn: 'redi_teammemberid',
   columns: {
@@ -151,7 +151,7 @@ export const buildingAdapter: ColumnAdapter<{
   name: string
   code: string
 }> = {
-  tableName: 'redi_building',
+  tableName: 'redi_buildings',
   idField: 'buildingId',
   idColumn: 'redi_buildingid',
   columns: {
@@ -168,7 +168,7 @@ export const levelAdapter: ColumnAdapter<{
   name: string
   sortOrder: number
 }> = {
-  tableName: 'redi_level',
+  tableName: 'redi_levels',
   idField: 'levelId',
   idColumn: 'redi_levelid',
   columns: {
@@ -188,7 +188,7 @@ export const locationAdapter: ColumnAdapter<{
   contactPersonId: string
   description: string
 }> = {
-  tableName: 'redi_location',
+  tableName: 'redi_locations',
   idField: 'locationId',
   idColumn: 'redi_locationid',
   columns: {
@@ -219,7 +219,7 @@ export const equipmentAdapter: ColumnAdapter<{
   status: EquipmentStatus
   active: boolean
 }> = {
-  tableName: 'redi_equipment',
+  tableName: 'redi_equipments',
   idField: 'equipmentId',
   idColumn: 'redi_equipmentid',
   columns: {
@@ -255,7 +255,7 @@ export const equipmentMediaAdapter: ColumnAdapter<{
   fileUrl: string
   sortOrder: number
 }> = {
-  tableName: 'redi_equipmentmedia',
+  tableName: 'redi_equipmentmedias',
   idField: 'equipmentMediaId',
   idColumn: 'redi_equipmentmediaid',
   columns: {
@@ -282,7 +282,7 @@ export const locationMediaAdapter: ColumnAdapter<{
   fileUrl: string
   sortOrder: number
 }> = {
-  tableName: 'redi_locationmedia',
+  tableName: 'redi_locationmedias',
   idField: 'locationMediaId',
   idColumn: 'redi_locationmediaid',
   columns: {
@@ -313,7 +313,7 @@ export const loanTransferAdapter: ColumnAdapter<{
   status: LoanStatus
   notes: string
 }> = {
-  tableName: 'redi_loantransfer',
+  tableName: 'redi_loantransfers',
   idField: 'loanTransferId',
   idColumn: 'redi_loantransferid',
   columns: {
