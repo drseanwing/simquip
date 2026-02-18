@@ -4,6 +4,7 @@ import { PowerContext } from './powerContext'
 import SplashScreen from './components/SplashScreen'
 
 const INIT_TIMEOUT_MS = 10000
+const MIN_SPLASH_MS = 1500
 
 interface PowerProviderProps {
   children: ReactNode
@@ -16,9 +17,10 @@ export default function PowerProvider({ children }: PowerProviderProps) {
 
   useEffect(() => {
     const timer = setTimeout(() => setTimedOut(true), INIT_TIMEOUT_MS)
+    const minSplash = new Promise<void>((r) => setTimeout(r, MIN_SPLASH_MS))
 
-    getContext()
-      .then((ctx) => {
+    Promise.all([getContext(), minSplash])
+      .then(([ctx]) => {
         clearTimeout(timer)
         setContext(ctx)
       })
