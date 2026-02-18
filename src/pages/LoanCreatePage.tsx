@@ -153,6 +153,8 @@ export default function LoanCreatePage() {
   }
 
   const handleSave = async () => {
+    if (saving) return
+
     const loan: Partial<LoanTransfer> = {
       equipmentId: equipmentId || undefined,
       startDate: startDate || undefined,
@@ -181,7 +183,8 @@ export default function LoanCreatePage() {
       setTimeout(() => {
         void navigate('/loans')
       }, 1000)
-    } catch {
+    } catch (err: unknown) {
+      setErrors([{ message: err instanceof Error ? err.message : 'Save failed' }])
       setSaving(false)
     }
   }

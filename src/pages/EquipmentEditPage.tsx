@@ -67,6 +67,7 @@ export default function EquipmentEditPage() {
   }
 
   const handleSave = async (equipment: Partial<Equipment>) => {
+    if (saving) return
     setSaving(true)
     try {
       await equipmentService.update(id, equipment)

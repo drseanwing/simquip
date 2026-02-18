@@ -85,6 +85,8 @@ export default function TeamCreatePage() {
   const activePersons = refData.persons.filter((p) => p.active)
 
   const handleSave = async () => {
+    if (saving) return
+
     const team: Partial<Team> = {
       name: name.trim(),
       teamCode: teamCode.trim(),
@@ -108,7 +110,8 @@ export default function TeamCreatePage() {
       setTimeout(() => {
         void navigate('/teams')
       }, 1000)
-    } catch {
+    } catch (err: unknown) {
+      setErrors([{ message: err instanceof Error ? err.message : 'Save failed' }])
       setSaving(false)
     }
   }

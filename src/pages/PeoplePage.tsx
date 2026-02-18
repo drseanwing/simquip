@@ -249,7 +249,9 @@ export default function PeoplePage() {
     setShowSuccess(false)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return
+
     const person: Partial<Person> = {
       displayName: displayName.trim(),
       email: email.trim(),
@@ -266,29 +268,27 @@ export default function PeoplePage() {
     }
 
     setSaving(true)
-    const saveOp = isCreating
-      ? personService.create(person as Person)
-      : personService.update(selectedPerson!.personId, person as Person)
+    try {
+      const saved = isCreating
+        ? await personService.create(person as Person)
+        : await personService.update(selectedPerson!.personId, person as Person)
 
-    void saveOp
-      .then((saved) => {
-        if (isCreating) {
-          setLocalPersons((prev) => [...prev, saved])
-        } else {
-          setLocalPersons((prev) =>
-            prev.map((p) => (p.personId === saved.personId ? saved : p)),
-          )
-        }
-        setSelectedPerson(saved)
-        setIsCreating(false)
-        setErrors([])
-        setShowSuccess(true)
-        setSaving(false)
-      })
-      .catch((err: unknown) => {
-        setErrors([{ message: err instanceof Error ? err.message : 'Save failed' }])
-        setSaving(false)
-      })
+      if (isCreating) {
+        setLocalPersons((prev) => [...prev, saved])
+      } else {
+        setLocalPersons((prev) =>
+          prev.map((p) => (p.personId === saved.personId ? saved : p)),
+        )
+      }
+      setSelectedPerson(saved)
+      setIsCreating(false)
+      setErrors([])
+      setShowSuccess(true)
+    } catch (err: unknown) {
+      setErrors([{ message: err instanceof Error ? err.message : 'Save failed' }])
+    } finally {
+      setSaving(false)
+    }
   }
 
   const showForm = isCreating || selectedPerson !== null

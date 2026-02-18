@@ -45,6 +45,7 @@ export default function EquipmentCreatePage() {
   }
 
   const handleSave = async (equipment: Partial<Equipment>) => {
+    if (saving) return
     setSaving(true)
     try {
       await equipmentService.create(equipment)
