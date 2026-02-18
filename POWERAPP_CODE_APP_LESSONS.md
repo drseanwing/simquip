@@ -1037,8 +1037,10 @@ The CSDL (Common Schema Definition Language) `$metadata` document is the **autho
 ### 14.2 Endpoint URL
 
 ```
-https://{org}.api.crm.dynamics.com/api/data/v9.2/$metadata?annotations=true
+https://{org}.crm{N}.dynamics.com/api/data/v9.2/$metadata?annotations=true
 ```
+
+Where `{N}` is the regional datacenter number (e.g., `6` for Oceania/Australia, blank for North America). See [Datacenter regions](https://learn.microsoft.com/en-us/power-platform/admin/new-datacenter-regions).
 
 **REdI Development environment:**
 ```
