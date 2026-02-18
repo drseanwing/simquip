@@ -66,6 +66,9 @@ export interface ColumnAdapter<T> {
   lookups?: Partial<
     Record<keyof T & string, { navigationProperty: string; targetIdColumn: string }>
   >
+  /** Columns that exist in the TS model but NOT on the Dataverse entity.
+   *  Excluded from $select; always return null from reads; skipped on writes. */
+  virtualColumns?: Set<keyof T & string>
   /** Fields to search when ListOptions.search is provided */
   searchFields: (keyof T & string)[]
 }
@@ -103,6 +106,7 @@ export const personAdapter: ColumnAdapter<{
     teamId: '_redi_teamid_value',
     active: 'redi_active',
   },
+  virtualColumns: new Set(['teamId']),
   searchFields: ['displayName', 'email'],
 }
 

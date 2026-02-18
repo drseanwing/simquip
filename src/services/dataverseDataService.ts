@@ -103,7 +103,7 @@ export class DataverseDataService<T extends Record<string, unknown>>
           accept: 'application/json',
           entityName: this.adapter.tableName,
           recordId: id,
-          $select: Object.values(this.adapter.columns).join(','),
+          $select: this.selectColumns().join(','),
         },
       },
     })
@@ -206,6 +206,15 @@ export class DataverseDataService<T extends Record<string, unknown>>
     }
   }
 
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /** Returns the Dataverse column names that actually exist on the entity (excludes virtual). */
+  private selectColumns(): string[] {
+    return Object.entries(this.adapter.columns)
+      .filter(([tsKey]) => !this.adapter.virtualColumns?.has(tsKey as keyof T & string))
+      .map(([, dvCol]) => dvCol)
+  }
+
   // ── Column mapping ───────────────────────────────────────────────────────
 
   /** Convert a Dataverse record into a TypeScript model. */
@@ -240,6 +249,9 @@ export class DataverseDataService<T extends Record<string, unknown>>
 
       // Skip the ID column on create (Dataverse auto-generates it)
       if (tsKey === this.adapter.idField) continue
+
+      // Skip virtual columns (they don't exist on the Dataverse entity)
+      if (this.adapter.virtualColumns?.has(tsKey as keyof T & string)) continue
 
       let dvValue = value
 
@@ -278,8 +290,8 @@ export class DataverseDataService<T extends Record<string, unknown>>
       entityName: this.adapter.tableName,
     }
 
-    // Select all mapped columns
-    params.$select = Object.values(this.adapter.columns).join(',')
+    // Select only real (non-virtual) columns
+    params.$select = this.selectColumns().join(',')
 
     // Pagination
     if (options?.top) params.$top = options.top
