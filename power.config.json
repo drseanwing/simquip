@@ -8,7 +8,16 @@
   "logoPath": "Default",
   "localAppUrl": "http://localhost:3000/",
   "region": "prod",
-  "connectionReferences": {},
+  "connectionReferences": {
+    "3efd9e5b-10e6-409e-98b1-c673d1987d02": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "displayName": "Microsoft Dataverse",
+      "dataSources": [
+        "commondataserviceforapps"
+      ],
+      "dataSets": {}
+    }
+  },
   "databaseReferences": {
     "default.cds": {
       "dataSources": {
