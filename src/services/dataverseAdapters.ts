@@ -112,6 +112,7 @@ export const personAdapter: ColumnAdapter<{
     active: 'redi_active',
   },
   virtualColumns: new Set(['teamId']),
+  defaultFilter: 'redi_active ne null',
   searchFields: ['displayName', 'email'],
 }
 
