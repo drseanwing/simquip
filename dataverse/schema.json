@@ -1,0 +1,263 @@
+{
+  "tables": [
+    {
+      "logicalName": "redi_building",
+      "displayName": "Building",
+      "pluralName": "Buildings",
+      "description": "Physical buildings containing simulation spaces",
+      "primaryNameColumn": "redi_building_name",
+      "columns": [
+        {
+          "logicalName": "redi_code",
+          "displayName": "Building Code",
+          "type": "String",
+          "maxLength": 20,
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_level",
+      "displayName": "Level",
+      "pluralName": "Levels",
+      "description": "Floor levels within buildings",
+      "primaryNameColumn": "redi_level_name",
+      "columns": [
+        {
+          "logicalName": "redi_sortorder",
+          "displayName": "Sort Order",
+          "type": "Integer"
+        },
+        {
+          "logicalName": "redi_buildingid",
+          "displayName": "Building",
+          "type": "Lookup",
+          "target": "redi_building",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_team",
+      "displayName": "Team",
+      "pluralName": "Teams",
+      "description": "Organisational teams that own and manage equipment",
+      "primaryNameColumn": "redi_team_name",
+      "columns": [
+        {
+          "logicalName": "redi_teamcode",
+          "displayName": "Team Code",
+          "type": "String",
+          "maxLength": 20,
+          "required": true
+        },
+        {
+          "logicalName": "redi_active",
+          "displayName": "Active",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "logicalName": "redi_maincontactpersonid",
+          "displayName": "Main Contact",
+          "type": "Lookup",
+          "target": "redi_person"
+        },
+        {
+          "logicalName": "redi_mainlocationid",
+          "displayName": "Main Location",
+          "type": "Lookup",
+          "target": "redi_location"
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_teammember",
+      "displayName": "Team Member",
+      "pluralName": "Team Members",
+      "description": "Association between people and teams with role",
+      "primaryNameColumn": "redi_teammember_name",
+      "columns": [
+        {
+          "logicalName": "redi_role",
+          "displayName": "Role",
+          "type": "String",
+          "maxLength": 200
+        },
+        {
+          "logicalName": "redi_teamid",
+          "displayName": "Team",
+          "type": "Lookup",
+          "target": "redi_team",
+          "required": true
+        },
+        {
+          "logicalName": "redi_personid",
+          "displayName": "Person",
+          "type": "Lookup",
+          "target": "redi_person",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_equipmentmedia",
+      "displayName": "Equipment Media",
+      "pluralName": "Equipment Media",
+      "description": "Images, documents, and attachments for equipment",
+      "primaryNameColumn": "redi_equipmentmedia_name",
+      "columns": [
+        {
+          "logicalName": "redi_mediatype",
+          "displayName": "Media Type",
+          "type": "Choice",
+          "options": ["Image", "Attachment"]
+        },
+        {
+          "logicalName": "redi_filename",
+          "displayName": "File Name",
+          "type": "String",
+          "maxLength": 500
+        },
+        {
+          "logicalName": "redi_mimetype",
+          "displayName": "MIME Type",
+          "type": "String",
+          "maxLength": 200
+        },
+        {
+          "logicalName": "redi_fileurl",
+          "displayName": "File URL",
+          "type": "String",
+          "maxLength": 2000
+        },
+        {
+          "logicalName": "redi_sortorder",
+          "displayName": "Sort Order",
+          "type": "Integer"
+        },
+        {
+          "logicalName": "redi_equipmentid",
+          "displayName": "Equipment",
+          "type": "Lookup",
+          "target": "redi_equipment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_locationmedia",
+      "displayName": "Location Media",
+      "pluralName": "Location Media",
+      "description": "Images and attachments for locations",
+      "primaryNameColumn": "redi_locationmedia_name",
+      "columns": [
+        {
+          "logicalName": "redi_mediatype",
+          "displayName": "Media Type",
+          "type": "Choice",
+          "options": ["Image", "Attachment"]
+        },
+        {
+          "logicalName": "redi_filename",
+          "displayName": "File Name",
+          "type": "String",
+          "maxLength": 500
+        },
+        {
+          "logicalName": "redi_mimetype",
+          "displayName": "MIME Type",
+          "type": "String",
+          "maxLength": 200
+        },
+        {
+          "logicalName": "redi_fileurl",
+          "displayName": "File URL",
+          "type": "String",
+          "maxLength": 2000
+        },
+        {
+          "logicalName": "redi_sortorder",
+          "displayName": "Sort Order",
+          "type": "Integer"
+        },
+        {
+          "logicalName": "redi_locationid",
+          "displayName": "Location",
+          "type": "Lookup",
+          "target": "redi_location",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_loantransfer",
+      "displayName": "Loan Transfer",
+      "pluralName": "Loan Transfers",
+      "description": "Equipment loan and transfer records",
+      "primaryNameColumn": "redi_loantransfer_name",
+      "columns": [
+        {
+          "logicalName": "redi_startdate",
+          "displayName": "Start Date",
+          "type": "DateOnly"
+        },
+        {
+          "logicalName": "redi_duedate",
+          "displayName": "Due Date",
+          "type": "DateOnly"
+        },
+        {
+          "logicalName": "redi_reasoncode",
+          "displayName": "Reason",
+          "type": "Choice",
+          "options": ["Simulation", "Training", "Service", "Other"]
+        },
+        {
+          "logicalName": "redi_loanstatus",
+          "displayName": "Loan Status",
+          "type": "Choice",
+          "options": ["Draft", "Active", "Overdue", "Returned", "Cancelled"]
+        },
+        {
+          "logicalName": "redi_isinternaltransfer",
+          "displayName": "Internal Transfer",
+          "type": "Boolean",
+          "default": false
+        },
+        {
+          "logicalName": "redi_notes",
+          "displayName": "Notes",
+          "type": "Memo"
+        },
+        {
+          "logicalName": "redi_equipmentid",
+          "displayName": "Equipment",
+          "type": "Lookup",
+          "target": "redi_equipment",
+          "required": true
+        },
+        {
+          "logicalName": "redi_originteamid",
+          "displayName": "Origin Team",
+          "type": "Lookup",
+          "target": "redi_team",
+          "required": true
+        },
+        {
+          "logicalName": "redi_recipientteamid",
+          "displayName": "Recipient Team",
+          "type": "Lookup",
+          "target": "redi_team",
+          "required": true
+        },
+        {
+          "logicalName": "redi_approverpersonid",
+          "displayName": "Approver",
+          "type": "Lookup",
+          "target": "redi_person"
+        }
+      ]
+    }
+  ]
+}

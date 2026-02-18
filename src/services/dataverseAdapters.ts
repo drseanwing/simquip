@@ -1,0 +1,337 @@
+/**
+ * Column-mapping configurations for each Dataverse table.
+ *
+ * Each adapter describes how to translate between a TypeScript model's camelCase
+ * property names and the Dataverse redi_ column logical names, plus how to
+ * convert choice integers ↔ string enum values.
+ */
+
+import type {
+  EquipmentStatus,
+  LoanReason,
+  LoanStatus,
+  MediaType,
+  OwnerType,
+} from '../types/enums'
+
+// ── Choice maps ──────────────────────────────────────────────────────────────
+
+const ownerTypeMap: Record<string, number> = { Team: 1, Person: 2 }
+const equipmentStatusMap: Record<string, number> = {
+  Available: 1,
+  InUse: 2,
+  UnderMaintenance: 3,
+  Retired: 4,
+}
+const loanStatusMap: Record<string, number> = {
+  Draft: 100000000,
+  Active: 100000001,
+  Overdue: 100000002,
+  Returned: 100000003,
+  Cancelled: 100000004,
+}
+const loanReasonMap: Record<string, number> = {
+  Simulation: 100000000,
+  Training: 100000001,
+  Service: 100000002,
+  Other: 100000003,
+}
+const mediaTypeMap: Record<string, number> = { Image: 100000000, Attachment: 100000001 }
+
+function invertMap(map: Record<string, number>): Record<number, string> {
+  const inv: Record<number, string> = {}
+  for (const [k, v] of Object.entries(map)) inv[v] = k
+  return inv
+}
+
+// ── Adapter type ─────────────────────────────────────────────────────────────
+
+export interface ColumnAdapter<T> {
+  /** Dataverse table logical name (e.g. 'redi_equipment') */
+  tableName: string
+  /** TypeScript ID property name (e.g. 'equipmentId') */
+  idField: keyof T & string
+  /** Dataverse primary-key column logical name (e.g. 'redi_equipmentid') */
+  idColumn: string
+  /** Map: TS property → Dataverse column logical name */
+  columns: Record<keyof T & string, string>
+  /** Choice columns: TS property → { toDb, fromDb } mappers */
+  choices?: Partial<
+    Record<
+      keyof T & string,
+      { toDb: (v: string) => number; fromDb: (v: number) => string }
+    >
+  >
+  /** Lookup columns that reference other tables (for $expand / formatted values) */
+  lookups?: Partial<
+    Record<keyof T & string, { navigationProperty: string; targetIdColumn: string }>
+  >
+  /** Fields to search when ListOptions.search is provided */
+  searchFields: (keyof T & string)[]
+}
+
+function choiceMapper(
+  toDbMap: Record<string, number>,
+): { toDb: (v: string) => number; fromDb: (v: number) => string } {
+  const fromDbMap = invertMap(toDbMap)
+  return {
+    toDb: (v: string) => toDbMap[v] ?? 0,
+    fromDb: (v: number) => fromDbMap[v] ?? '',
+  }
+}
+
+// ── Per-entity adapters ──────────────────────────────────────────────────────
+
+export const personAdapter: ColumnAdapter<{
+  personId: string
+  displayName: string
+  email: string
+  phone: string
+  teamId: string | null
+  active: boolean
+}> = {
+  tableName: 'redi_person',
+  idField: 'personId',
+  idColumn: 'redi_personid',
+  columns: {
+    personId: 'redi_personid',
+    displayName: 'redi_displayname',
+    email: 'redi_email',
+    phone: 'redi_phone',
+    // No direct teamId column on redi_person; team membership is via redi_teammember.
+    // Mapped here for type compatibility; returns null from Dataverse.
+    teamId: '_redi_teamid_value',
+    active: 'redi_active',
+  },
+  searchFields: ['displayName', 'email'],
+}
+
+export const teamAdapter: ColumnAdapter<{
+  teamId: string
+  teamCode: string
+  name: string
+  mainContactPersonId: string
+  mainLocationId: string
+  active: boolean
+}> = {
+  tableName: 'redi_team',
+  idField: 'teamId',
+  idColumn: 'redi_teamid',
+  columns: {
+    teamId: 'redi_teamid',
+    teamCode: 'redi_teamcode',
+    name: 'redi_team_name',
+    mainContactPersonId: '_redi_maincontactpersonid_value',
+    mainLocationId: '_redi_mainlocationid_value',
+    active: 'redi_active',
+  },
+  searchFields: ['name', 'teamCode'],
+}
+
+export const teamMemberAdapter: ColumnAdapter<{
+  teamMemberId: string
+  teamId: string
+  personId: string
+  role: string
+}> = {
+  tableName: 'redi_teammember',
+  idField: 'teamMemberId',
+  idColumn: 'redi_teammemberid',
+  columns: {
+    teamMemberId: 'redi_teammemberid',
+    teamId: '_redi_teamid_value',
+    personId: '_redi_personid_value',
+    role: 'redi_role',
+  },
+  searchFields: ['role'],
+}
+
+export const buildingAdapter: ColumnAdapter<{
+  buildingId: string
+  name: string
+  code: string
+}> = {
+  tableName: 'redi_building',
+  idField: 'buildingId',
+  idColumn: 'redi_buildingid',
+  columns: {
+    buildingId: 'redi_buildingid',
+    name: 'redi_building_name',
+    code: 'redi_code',
+  },
+  searchFields: ['name', 'code'],
+}
+
+export const levelAdapter: ColumnAdapter<{
+  levelId: string
+  buildingId: string
+  name: string
+  sortOrder: number
+}> = {
+  tableName: 'redi_level',
+  idField: 'levelId',
+  idColumn: 'redi_levelid',
+  columns: {
+    levelId: 'redi_levelid',
+    buildingId: '_redi_buildingid_value',
+    name: 'redi_level_name',
+    sortOrder: 'redi_sortorder',
+  },
+  searchFields: ['name'],
+}
+
+export const locationAdapter: ColumnAdapter<{
+  locationId: string
+  buildingId: string
+  levelId: string
+  name: string
+  contactPersonId: string
+  description: string
+}> = {
+  tableName: 'redi_location',
+  idField: 'locationId',
+  idColumn: 'redi_locationid',
+  columns: {
+    locationId: 'redi_locationid',
+    buildingId: '_redi_sq_buildingid_value',
+    levelId: '_redi_sq_levelid_value',
+    name: 'redi_departmentname',
+    contactPersonId: '_redi_contactpersonid_value',
+    description: 'redi_sq_description',
+  },
+  searchFields: ['name', 'description'],
+}
+
+export const equipmentAdapter: ColumnAdapter<{
+  equipmentId: string
+  equipmentCode: string
+  name: string
+  description: string
+  ownerType: OwnerType
+  ownerTeamId: string | null
+  ownerPersonId: string | null
+  contactPersonId: string
+  homeLocationId: string
+  parentEquipmentId: string | null
+  keyImageUrl: string
+  quickStartFlowChartJson: string
+  contentsListJson: string
+  status: EquipmentStatus
+  active: boolean
+}> = {
+  tableName: 'redi_equipment',
+  idField: 'equipmentId',
+  idColumn: 'redi_equipmentid',
+  columns: {
+    equipmentId: 'redi_equipmentid',
+    equipmentCode: 'redi_equipmentcode',
+    name: 'redi_itemname',
+    description: 'redi_sq_description',
+    ownerType: 'redi_sq_ownertype',
+    ownerTeamId: '_redi_ownerteamid_value',
+    ownerPersonId: '_redi_ownerpersonid_value',
+    contactPersonId: '_redi_sq_contactpersonid_value',
+    homeLocationId: '_redi_sq_homelocationid_value',
+    parentEquipmentId: '_redi_parentequipmentid_value',
+    keyImageUrl: 'redi_keyimageurl',
+    quickStartFlowChartJson: 'redi_quickstartflowchartjson',
+    contentsListJson: 'redi_contentslistjson',
+    status: 'redi_sq_status',
+    active: 'redi_sq_active',
+  },
+  choices: {
+    ownerType: choiceMapper(ownerTypeMap),
+    status: choiceMapper(equipmentStatusMap),
+  },
+  searchFields: ['name', 'equipmentCode', 'description'],
+}
+
+export const equipmentMediaAdapter: ColumnAdapter<{
+  equipmentMediaId: string
+  equipmentId: string
+  mediaType: MediaType
+  fileName: string
+  mimeType: string
+  fileUrl: string
+  sortOrder: number
+}> = {
+  tableName: 'redi_equipmentmedia',
+  idField: 'equipmentMediaId',
+  idColumn: 'redi_equipmentmediaid',
+  columns: {
+    equipmentMediaId: 'redi_equipmentmediaid',
+    equipmentId: '_redi_equipmentid_value',
+    mediaType: 'redi_mediatype',
+    fileName: 'redi_filename',
+    mimeType: 'redi_mimetype',
+    fileUrl: 'redi_fileurl',
+    sortOrder: 'redi_sortorder',
+  },
+  choices: {
+    mediaType: choiceMapper(mediaTypeMap),
+  },
+  searchFields: ['fileName'],
+}
+
+export const locationMediaAdapter: ColumnAdapter<{
+  locationMediaId: string
+  locationId: string
+  mediaType: MediaType
+  fileName: string
+  mimeType: string
+  fileUrl: string
+  sortOrder: number
+}> = {
+  tableName: 'redi_locationmedia',
+  idField: 'locationMediaId',
+  idColumn: 'redi_locationmediaid',
+  columns: {
+    locationMediaId: 'redi_locationmediaid',
+    locationId: '_redi_locationid_value',
+    mediaType: 'redi_mediatype',
+    fileName: 'redi_filename',
+    mimeType: 'redi_mimetype',
+    fileUrl: 'redi_fileurl',
+    sortOrder: 'redi_sortorder',
+  },
+  choices: {
+    mediaType: choiceMapper(mediaTypeMap),
+  },
+  searchFields: ['fileName'],
+}
+
+export const loanTransferAdapter: ColumnAdapter<{
+  loanTransferId: string
+  equipmentId: string
+  startDate: string
+  dueDate: string
+  originTeamId: string
+  recipientTeamId: string
+  reasonCode: LoanReason
+  approverPersonId: string
+  isInternalTransfer: boolean
+  status: LoanStatus
+  notes: string
+}> = {
+  tableName: 'redi_loantransfer',
+  idField: 'loanTransferId',
+  idColumn: 'redi_loantransferid',
+  columns: {
+    loanTransferId: 'redi_loantransferid',
+    equipmentId: '_redi_equipmentid_value',
+    startDate: 'redi_startdate',
+    dueDate: 'redi_duedate',
+    originTeamId: '_redi_originteamid_value',
+    recipientTeamId: '_redi_recipientteamid_value',
+    reasonCode: 'redi_reasoncode',
+    approverPersonId: '_redi_approverpersonid_value',
+    isInternalTransfer: 'redi_isinternaltransfer',
+    status: 'redi_loanstatus',
+    notes: 'redi_notes',
+  },
+  choices: {
+    reasonCode: choiceMapper(loanReasonMap),
+    status: choiceMapper(loanStatusMap),
+  },
+  searchFields: ['notes'],
+}

@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Primary Colors */
+  --redi-coral: #E55B64;
+  --redi-coral-dark: #D14A53;
+  --redi-navy: #1B3A5F;
+  --redi-navy-light: #2A5080;
+  --redi-teal: #2B9E9E;
+  --redi-teal-dark: #1F7A7A;
+
+  /* Secondary Colors */
+  --redi-light-teal: #8DD4D4;
+  --redi-lime: #B8CC26;
+  --redi-sky: #5DADE2;
+  --redi-yellow: #F4D03F;
+
+  /* Neutrals */
+  --redi-dark-gray: #333333;
+  --redi-medium-gray: #666666;
+  --redi-light-gray: #F5F5F5;
+  --redi-border-gray: #E0E0E0;
+
+  /* Semantic */
+  --redi-error: #DC3545;
+  --redi-warning: #FFC107;
+  --redi-success: #28A745;
+  --redi-info: #17A2B8;
+
+  font-family: 'Montserrat', 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--redi-dark-gray);
+  background-color: #ffffff;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--redi-navy);
+  font-weight: 600;
+}
+
+a {
+  color: var(--redi-coral);
+}
+
+a:hover {
+  color: var(--redi-coral-dark);
+}
+
+:focus-visible {
+  outline: 3px solid var(--redi-teal);
+  outline-offset: 2px;
+}
+
+/* Override Fluent UI Tab text color in the navy header */
+nav .fui-Tab .fui-Tab__content {
+  color: #ffffff;
+}
+
+nav .fui-Tab:hover .fui-Tab__content {
+  color: #d5d65b;
+}
+
+nav .fui-Tab[aria-selected='true'] .fui-Tab__content {
+  color: #d5d65b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "appId": "6d03e51d-1113-4a93-acc7-22372e5fc13c",
+  "appDisplayName": "SimQuip",
+  "description": null,
+  "environmentId": "a67592d2-e775-e14c-bb5a-6366576198ca",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "logoPath": "Default",
+  "localAppUrl": "http://localhost:3000/",
+  "region": "prod",
+  "connectionReferences": {
+    "3efd9e5b-10e6-409e-98b1-c673d1987d02": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "displayName": "Microsoft Dataverse",
+      "dataSources": [
+        "commondataserviceforapps"
+      ],
+      "dataSets": {}
+    }
+  },
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "people": {
+          "entitySetName": "redi_persons",
+          "logicalName": "redi_person"
+        },
+        "buildings": {
+          "entitySetName": "redi_buildings",
+          "logicalName": "redi_building"
+        },
+        "levels": {
+          "entitySetName": "redi_levels",
+          "logicalName": "redi_level"
+        },
+        "teams": {
+          "entitySetName": "redi_teams",
+          "logicalName": "redi_team"
+        },
+        "teammembers": {
+          "entitySetName": "redi_teammembers",
+          "logicalName": "redi_teammember"
+        },
+        "equipment": {
+          "entitySetName": "redi_equipments",
+          "logicalName": "redi_equipment"
+        },
+        "equipmentmedia": {
+          "entitySetName": "redi_equipmentmedias",
+          "logicalName": "redi_equipmentmedia"
+        },
+        "locations": {
+          "entitySetName": "redi_locations",
+          "logicalName": "redi_location"
+        },
+        "locationmedia": {
+          "entitySetName": "redi_locationmedias",
+          "logicalName": "redi_locationmedia"
+        },
+        "loantransfers": {
+          "entitySetName": "redi_loantransfers",
+          "logicalName": "redi_loantransfer"
+        }
+      },
+      "environmentVariableName": ""
+    }
+  },
+  "version": "1.0"
+}
