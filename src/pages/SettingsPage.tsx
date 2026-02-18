@@ -63,14 +63,20 @@ export default function SettingsPage() {
 
   const [seedLog, setSeedLog] = useState<string[]>([])
   const [clearLog, setClearLog] = useState<string[]>([])
+  const [previewLog, setPreviewLog] = useState<string[]>([])
   const [seeding, setSeeding] = useState(false)
   const [clearing, setClearing] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
   const [seedError, setSeedError] = useState<string | null>(null)
   const [clearError, setClearError] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
   const [showClearDialog, setShowClearDialog] = useState(false)
 
   const seedLogRef = useRef<HTMLDivElement>(null)
   const clearLogRef = useRef<HTMLDivElement>(null)
+  const previewLogRef = useRef<HTMLDivElement>(null)
+
+  const busy = seeding || clearing || previewing
 
   useEffect(() => {
     if (seedLogRef.current) {
@@ -83,6 +89,12 @@ export default function SettingsPage() {
       clearLogRef.current.scrollTop = clearLogRef.current.scrollHeight
     }
   }, [clearLog])
+
+  useEffect(() => {
+    if (previewLogRef.current) {
+      previewLogRef.current.scrollTop = previewLogRef.current.scrollHeight
+    }
+  }, [previewLog])
 
   const handleSeed = () => {
     setSeeding(true)
@@ -100,6 +112,25 @@ export default function SettingsPage() {
         setSeedError(message)
         setSeedLog((prev) => [...prev, `ERROR: ${message}`])
         setSeeding(false)
+      })
+  }
+
+  const handlePreview = () => {
+    setPreviewing(true)
+    setPreviewLog([])
+    setPreviewError(null)
+
+    void clearAllData(services, (msg) => {
+      setPreviewLog((prev) => [...prev, msg])
+    }, { dryRun: true })
+      .then(() => {
+        setPreviewing(false)
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        setPreviewError(message)
+        setPreviewLog((prev) => [...prev, `ERROR: ${message}`])
+        setPreviewing(false)
       })
   }
 
@@ -138,7 +169,7 @@ export default function SettingsPage() {
               Populate the database with sample buildings, teams, people, equipment, and loans.
             </Text>
           </div>
-          <Button appearance="primary" onClick={handleSeed} disabled={seeding || clearing}>
+          <Button appearance="primary" onClick={handleSeed} disabled={busy}>
             {seeding ? 'Seeding...' : 'Seed Data'}
           </Button>
         </div>
@@ -161,16 +192,46 @@ export default function SettingsPage() {
         <div className={styles.cardHeader}>
           <div>
             <Text size={400} weight="semibold">
+              Preview Clear
+            </Text>
+            <br />
+            <Text size={200}>
+              Dry run — lists every record that would be deleted without modifying any data.
+            </Text>
+          </div>
+          <Button appearance="secondary" onClick={handlePreview} disabled={busy}>
+            {previewing ? 'Scanning...' : 'Preview Clear'}
+          </Button>
+        </div>
+
+        {previewLog.length > 0 && (
+          <div className={styles.log} ref={previewLogRef}>
+            {previewLog.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
+        )}
+
+        {previewError && <Text className={styles.errorText}>Preview failed: {previewError}</Text>}
+        {!previewing && previewLog.length > 0 && !previewError && (
+          <Text className={styles.successText}>Preview complete — no data was modified.</Text>
+        )}
+      </Card>
+
+      <Card className={styles.card}>
+        <div className={styles.cardHeader}>
+          <div>
+            <Text size={400} weight="semibold">
               Clear All Data
             </Text>
             <br />
             <Text size={200}>
-              Remove all records from the database. This action cannot be undone.
+              Remove all SimQuip records from the database. Run Preview Clear first to verify.
             </Text>
           </div>
           <Dialog open={showClearDialog} onOpenChange={(_e, data) => setShowClearDialog(data.open)}>
             <DialogTrigger disableButtonEnhancement>
-              <Button appearance="primary" color="danger" disabled={seeding || clearing}>
+              <Button appearance="primary" color="danger" disabled={busy}>
                 {clearing ? 'Clearing...' : 'Clear All Data'}
               </Button>
             </DialogTrigger>

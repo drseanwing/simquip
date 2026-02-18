@@ -267,82 +267,127 @@ export async function seedAllData(
 async function deleteAll(
   service: DataService<any>,
   idField: string,
+  nameField: string,
   label: string,
   onProgress: (message: string) => void,
+  dryRun: boolean,
 ): Promise<void> {
   const result = await service.getAll({ top: 5000 })
-  for (const item of result.data) {
-    await service.delete((item as Record<string, unknown>)[idField] as string)
+  if (dryRun) {
+    for (const item of result.data) {
+      const rec = item as Record<string, unknown>
+      const name = rec[nameField] ?? rec[idField]
+      onProgress(`    ${name}`)
+    }
+    onProgress(`  Would delete ${result.data.length} ${label}`)
+  } else {
+    for (const item of result.data) {
+      await service.delete((item as Record<string, unknown>)[idField] as string)
+    }
+    onProgress(`  Deleted ${result.data.length} ${label}`)
   }
-  onProgress(`  Deleted ${result.data.length} ${label}`)
+}
+
+export interface ClearOptions {
+  dryRun?: boolean
 }
 
 export async function clearAllData(
   services: ServiceRegistry,
   onProgress: (message: string) => void,
+  options?: ClearOptions,
 ): Promise<void> {
+  const dryRun = options?.dryRun ?? false
+  const verb = dryRun ? 'Would delete' : 'Deleting'
+
+  if (dryRun) {
+    onProgress('=== DRY RUN — no data will be modified ===')
+    onProgress('')
+  }
+
   // Delete in reverse FK order (leaf entities first)
 
   // 1. Loan Transfers
-  onProgress('Deleting loan transfers...')
-  await deleteAll(services.loanTransferService, 'loanTransferId', 'loan transfers', onProgress)
+  onProgress(`${verb} loan transfers...`)
+  await deleteAll(services.loanTransferService, 'loanTransferId', 'notes', 'loan transfers', onProgress, dryRun)
 
   // 2. Equipment Media
-  onProgress('Deleting equipment media...')
-  await deleteAll(services.equipmentMediaService, 'equipmentMediaId', 'equipment media', onProgress)
+  onProgress(`${verb} equipment media...`)
+  await deleteAll(services.equipmentMediaService, 'equipmentMediaId', 'fileName', 'equipment media', onProgress, dryRun)
 
   // 3. Location Media
-  onProgress('Deleting location media...')
-  await deleteAll(services.locationMediaService, 'locationMediaId', 'location media', onProgress)
+  onProgress(`${verb} location media...`)
+  await deleteAll(services.locationMediaService, 'locationMediaId', 'fileName', 'location media', onProgress, dryRun)
 
   // 4. Equipment (null out self-references first, then delete)
-  onProgress('Deleting equipment...')
+  onProgress(`${verb} equipment...`)
   const equipResult = await services.equipmentService.getAll({ top: 5000 })
-  for (const e of equipResult.data) {
-    if (e.parentEquipmentId) {
-      await services.equipmentService.update(e.equipmentId, { ...e, parentEquipmentId: null })
+  if (dryRun) {
+    for (const e of equipResult.data) {
+      onProgress(`    ${e.name} (${e.equipmentCode})`)
     }
+    onProgress(`  Would delete ${equipResult.data.length} equipment items`)
+  } else {
+    for (const e of equipResult.data) {
+      if (e.parentEquipmentId) {
+        await services.equipmentService.update(e.equipmentId, { ...e, parentEquipmentId: null })
+      }
+    }
+    for (const e of equipResult.data) {
+      await services.equipmentService.delete(e.equipmentId)
+    }
+    onProgress(`  Deleted ${equipResult.data.length} equipment items`)
   }
-  for (const e of equipResult.data) {
-    await services.equipmentService.delete(e.equipmentId)
-  }
-  onProgress(`  Deleted ${equipResult.data.length} equipment items`)
 
   // 5. Team Members
-  onProgress('Deleting team members...')
-  await deleteAll(services.teamMemberService, 'teamMemberId', 'team members', onProgress)
+  onProgress(`${verb} team members...`)
+  await deleteAll(services.teamMemberService, 'teamMemberId', 'role', 'team members', onProgress, dryRun)
 
   // 6. Null out Person.teamId to break circular ref before deleting Teams
-  onProgress('Unlinking persons from teams...')
   const personsResult = await services.personService.getAll({ top: 5000 })
-  for (const p of personsResult.data) {
-    if (p.teamId) {
-      await services.personService.update(p.personId, { ...p, teamId: null })
+  if (!dryRun) {
+    onProgress('Unlinking persons from teams...')
+    for (const p of personsResult.data) {
+      if (p.teamId) {
+        await services.personService.update(p.personId, { ...p, teamId: null })
+      }
     }
   }
 
   // 7. Teams
-  onProgress('Deleting teams...')
-  await deleteAll(services.teamService, 'teamId', 'teams', onProgress)
+  onProgress(`${verb} teams...`)
+  await deleteAll(services.teamService, 'teamId', 'name', 'teams', onProgress, dryRun)
 
   // 8. Locations
-  onProgress('Deleting locations...')
-  await deleteAll(services.locationService, 'locationId', 'locations', onProgress)
+  onProgress(`${verb} locations...`)
+  await deleteAll(services.locationService, 'locationId', 'name', 'locations', onProgress, dryRun)
 
   // 9. Levels
-  onProgress('Deleting levels...')
-  await deleteAll(services.levelService, 'levelId', 'levels', onProgress)
+  onProgress(`${verb} levels...`)
+  await deleteAll(services.levelService, 'levelId', 'name', 'levels', onProgress, dryRun)
 
   // 10. Persons
-  onProgress('Deleting persons...')
-  for (const p of personsResult.data) {
-    await services.personService.delete(p.personId)
+  onProgress(`${verb} persons...`)
+  if (dryRun) {
+    for (const p of personsResult.data) {
+      onProgress(`    ${p.displayName}`)
+    }
+    onProgress(`  Would delete ${personsResult.data.length} persons`)
+  } else {
+    for (const p of personsResult.data) {
+      await services.personService.delete(p.personId)
+    }
+    onProgress(`  Deleted ${personsResult.data.length} persons`)
   }
-  onProgress(`  Deleted ${personsResult.data.length} persons`)
 
   // 11. Buildings
-  onProgress('Deleting buildings...')
-  await deleteAll(services.buildingService, 'buildingId', 'buildings', onProgress)
+  onProgress(`${verb} buildings...`)
+  await deleteAll(services.buildingService, 'buildingId', 'name', 'buildings', onProgress, dryRun)
 
-  onProgress('All data cleared!')
+  if (dryRun) {
+    onProgress('')
+    onProgress('=== DRY RUN COMPLETE — nothing was deleted ===')
+  } else {
+    onProgress('All data cleared!')
+  }
 }
