@@ -5,7 +5,9 @@
 
 // Models
 export * as CommonModels from './models/CommonModels';
+export * as MicrosoftDataverseModel from './models/MicrosoftDataverseModel';
 export * as Redi_personsModel from './models/Redi_personsModel';
 
 // Services
+export * from './services/MicrosoftDataverseService';
 export * from './services/Redi_personsService';
