@@ -4,8 +4,16 @@ import { withRetry } from '../utils/retry'
 import type { DataService, ListOptions, PagedResult } from './dataService'
 import type { ColumnAdapter } from './dataverseAdapters'
 
+/** The Dataverse connector data source name registered in dataSourcesInfo. */
+const CONNECTOR_DATA_SOURCE = 'commondataserviceforapps'
+
 /**
  * Generic Dataverse implementation of {@link DataService}.
+ *
+ * Uses the connector-based `executeAsync` pattern (ListRecords, GetItem,
+ * CreateRecord, UpdateRecord, DeleteRecord) routed through the
+ * `commondataserviceforapps` connector – rather than direct SDK CRUD methods
+ * which require per-table entries in dataSourcesInfo.
  *
  * Translates between camelCase TypeScript models and Dataverse redi_ columns,
  * converts choice integers ↔ string enums, and handles lookups.
@@ -43,36 +51,62 @@ export class DataverseDataService<T extends Record<string, unknown>>
     return withRetry(() => this.deleteInternal(id))
   }
 
-  // ── Internal implementations ─────────────────────────────────────────────
+  // ── Internal implementations (connector-based) ─────────────────────────
 
   private async getAllInternal(options?: ListOptions): Promise<PagedResult<T>> {
-    const queryOptions = this.buildQueryOptions(options)
+    const params = this.buildListParams(options)
 
-    const result: IOperationResult<Record<string, unknown>[]> =
-      await this.client.retrieveMultipleRecordsAsync(
-        this.adapter.tableName,
-        queryOptions,
-      )
+    const result = await this.client.executeAsync<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >({
+      connectorOperation: {
+        tableName: CONNECTOR_DATA_SOURCE,
+        operationName: 'ListRecords',
+        parameters: params,
+      },
+    })
 
-    this.throwOnFailure(result, 'retrieveMultiple')
+    this.throwOnFailure(result, 'ListRecords')
 
-    const data = result.data.map((row) => this.fromDataverse(row))
-    const totalCount = result.count ?? data.length
-    const hasMore = !!result.skipToken
+    // Connector ListRecords returns { value: [...rows], @odata.nextLink?, @odata.count? }
+    const responseData = result.data as Record<string, unknown>
+    const rows = (responseData?.value ?? result.data) as Record<string, unknown>[]
+    const rowArray = Array.isArray(rows) ? rows : []
+
+    const data = rowArray.map((row) => this.fromDataverse(row))
+
+    const odataCount = responseData?.['@odata.count']
+    const totalCount = typeof odataCount === 'number' ? odataCount : (result.count ?? data.length)
+    const hasMore = !!responseData?.['@odata.nextLink'] || !!result.skipToken
 
     return { data, totalCount, hasMore }
   }
 
   private async getByIdInternal(id: string): Promise<T> {
-    const result: IOperationResult<Record<string, unknown>> =
-      await this.client.retrieveRecordAsync(this.adapter.tableName, id)
+    const result = await this.client.executeAsync<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >({
+      connectorOperation: {
+        tableName: CONNECTOR_DATA_SOURCE,
+        operationName: 'GetItem',
+        parameters: {
+          prefer: 'return=representation',
+          accept: 'application/json',
+          entityName: this.adapter.tableName,
+          recordId: id,
+          $select: Object.values(this.adapter.columns).join(','),
+        },
+      },
+    })
 
     if (!result.success) {
       const status = (result.error as { status?: number } | undefined)?.status
       if (status === 404) {
         throw new NotFoundError(this.adapter.tableName, id)
       }
-      this.throwOnFailure(result, 'retrieve')
+      this.throwOnFailure(result, 'GetItem')
     }
 
     return this.fromDataverse(result.data)
@@ -81,10 +115,23 @@ export class DataverseDataService<T extends Record<string, unknown>>
   private async createInternal(item: Partial<T>): Promise<T> {
     const dvRecord = this.toDataverse(item)
 
-    const result: IOperationResult<Record<string, unknown>> =
-      await this.client.createRecordAsync(this.adapter.tableName, dvRecord)
+    const result = await this.client.executeAsync<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >({
+      connectorOperation: {
+        tableName: CONNECTOR_DATA_SOURCE,
+        operationName: 'CreateRecord',
+        parameters: {
+          prefer: 'return=representation',
+          accept: 'application/json',
+          entityName: this.adapter.tableName,
+          item: dvRecord,
+        },
+      },
+    })
 
-    this.throwOnFailure(result, 'create')
+    this.throwOnFailure(result, 'CreateRecord')
 
     // After a successful create, retrieve the full record so the caller
     // gets a complete T (including server-generated fields).
@@ -103,26 +150,49 @@ export class DataverseDataService<T extends Record<string, unknown>>
   private async updateInternal(id: string, item: Partial<T>): Promise<T> {
     const dvRecord = this.toDataverse(item)
 
-    const result: IOperationResult<Record<string, unknown>> =
-      await this.client.updateRecordAsync(this.adapter.tableName, id, dvRecord)
+    const result = await this.client.executeAsync<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >({
+      connectorOperation: {
+        tableName: CONNECTOR_DATA_SOURCE,
+        operationName: 'UpdateRecord',
+        parameters: {
+          prefer: 'return=representation',
+          accept: 'application/json',
+          entityName: this.adapter.tableName,
+          recordId: id,
+          item: dvRecord,
+        },
+      },
+    })
 
-    this.throwOnFailure(result, 'update')
+    this.throwOnFailure(result, 'UpdateRecord')
 
     return this.getByIdInternal(id)
   }
 
   private async deleteInternal(id: string): Promise<void> {
-    const result: IOperationResult<void> = await this.client.deleteRecordAsync(
-      this.adapter.tableName,
-      id,
-    )
+    const result = await this.client.executeAsync<
+      Record<string, unknown>,
+      void
+    >({
+      connectorOperation: {
+        tableName: CONNECTOR_DATA_SOURCE,
+        operationName: 'DeleteRecord',
+        parameters: {
+          entityName: this.adapter.tableName,
+          recordId: id,
+        },
+      },
+    })
 
     if (!result.success) {
       const status = (result.error as { status?: number } | undefined)?.status
       if (status === 404) {
         throw new NotFoundError(this.adapter.tableName, id)
       }
-      this.throwOnFailure(result, 'delete')
+      this.throwOnFailure(result, 'DeleteRecord')
     }
   }
 
@@ -190,28 +260,26 @@ export class DataverseDataService<T extends Record<string, unknown>>
     return record
   }
 
-  // ── Query building ───────────────────────────────────────────────────────
+  // ── Query building (for ListRecords connector params) ──────────────────
 
-  private buildQueryOptions(
-    options?: ListOptions,
-  ): Record<string, unknown> {
-    const qo: Record<string, unknown> = { count: true }
+  private buildListParams(options?: ListOptions): Record<string, unknown> {
+    const params: Record<string, unknown> = {
+      entityName: this.adapter.tableName,
+    }
 
     // Select all mapped columns
-    qo.select = Object.values(this.adapter.columns)
+    params.$select = Object.values(this.adapter.columns).join(',')
 
     // Pagination
-    if (options?.top) qo.top = options.top
-    if (options?.skip) qo.skip = options.skip
+    if (options?.top) params.$top = options.top
 
     // Sorting
     if (options?.orderBy) {
-      // Translate TS field name to Dataverse column
       const parts = options.orderBy.split(' ')
       const tsField = parts[0]
       const direction = parts[1] ?? 'asc'
       const dvCol = this.adapter.columns[tsField as keyof T & string] ?? tsField
-      qo.orderBy = [`${dvCol} ${direction}`]
+      params.$orderby = `${dvCol} ${direction}`
     }
 
     // Filtering
@@ -227,16 +295,15 @@ export class DataverseDataService<T extends Record<string, unknown>>
     }
 
     if (options?.filter) {
-      // Translate simple "field eq 'value'" filters
       const translated = this.translateFilter(options.filter)
       filters.push(translated)
     }
 
     if (filters.length > 0) {
-      qo.filter = filters.join(' and ')
+      params.$filter = filters.join(' and ')
     }
 
-    return qo
+    return params
   }
 
   private translateFilter(filter: string): string {
