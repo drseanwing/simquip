@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
-import { Spinner } from '@fluentui/react-components'
 import AppShell from './components/AppShell'
+import SplashScreen from './components/SplashScreen'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const EquipmentListPage = lazy(() => import('./pages/EquipmentListPage'))
@@ -23,7 +23,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 export default function App() {
   return (
     <HashRouter>
-      <Suspense fallback={<Spinner size="large" label="Loading..." />}>
+      <Suspense fallback={<SplashScreen />}>
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />

@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { getContext, type IContext } from '@microsoft/power-apps/app'
 import { PowerContext } from './powerContext'
+import SplashScreen from './components/SplashScreen'
 
 const INIT_TIMEOUT_MS = 10000
 
@@ -55,11 +56,7 @@ export default function PowerProvider({ children }: PowerProviderProps) {
   }
 
   if (!context) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Initializing...</p>
-      </div>
-    )
+    return <SplashScreen />
   }
 
   return <PowerContext.Provider value={context}>{children}</PowerContext.Provider>
