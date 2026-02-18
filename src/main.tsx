@@ -5,6 +5,7 @@ import rediLightTheme from './theme'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import PowerProvider from './PowerProvider'
 import { ServiceProvider } from './contexts/ServiceContext'
+import { AuthProvider } from './contexts/AuthContext'
 import App from './App'
 import './index.css'
 
@@ -14,7 +15,9 @@ createRoot(document.getElementById('root')!).render(
       <PowerProvider>
         <FluentProvider theme={rediLightTheme}>
           <ServiceProvider>
-            <App />
+            <AuthProvider>
+              <App />
+            </AuthProvider>
           </ServiceProvider>
         </FluentProvider>
       </PowerProvider>

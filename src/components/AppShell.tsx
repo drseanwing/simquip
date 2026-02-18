@@ -3,19 +3,27 @@ import {
   shorthands,
   Tab,
   TabList,
+  Text,
   type SelectTabData,
   type SelectTabEvent,
 } from '@fluentui/react-components'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
-const navItems = [
-  { path: '/', label: 'Dashboard' },
-  { path: '/equipment', label: 'Equipment' },
-  { path: '/locations', label: 'Locations' },
-  { path: '/people', label: 'People' },
-  { path: '/teams', label: 'Teams' },
-  { path: '/loans', label: 'Loans' },
-  { path: '/settings', label: 'Settings' },
+interface NavItem {
+  path: string
+  label: string
+  adminOnly: boolean
+}
+
+const navItems: NavItem[] = [
+  { path: '/', label: 'Dashboard', adminOnly: false },
+  { path: '/equipment', label: 'Equipment', adminOnly: false },
+  { path: '/locations', label: 'Locations', adminOnly: true },
+  { path: '/people', label: 'People', adminOnly: true },
+  { path: '/teams', label: 'Teams', adminOnly: true },
+  { path: '/loans', label: 'Loans', adminOnly: false },
+  { path: '/settings', label: 'Settings', adminOnly: true },
 ]
 
 const useStyles = makeStyles({
@@ -61,6 +69,13 @@ const useStyles = makeStyles({
     flex: 1,
     minWidth: 0,
   },
+  userInfo: {
+    paddingRight: '20px',
+    paddingLeft: '8px',
+    fontSize: '0.75rem',
+    color: 'rgba(255, 255, 255, 0.8)',
+    whiteSpace: 'nowrap' as const,
+  },
   gradientBar: {
     height: '4px',
     background:
@@ -87,7 +102,10 @@ export default function AppShell() {
   const styles = useStyles()
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, isAdmin } = useAuth()
   const selectedTab = resolveSelectedTab(location.pathname)
+
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin)
 
   const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
     void navigate(data.value as string)
@@ -109,13 +127,18 @@ export default function AppShell() {
             appearance="subtle"
             size="large"
           >
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <Tab key={item.path} value={item.path}>
                 {item.label}
               </Tab>
             ))}
           </TabList>
         </nav>
+        {user && (
+          <Text className={styles.userInfo}>
+            {user.fullName}{isAdmin ? ' (Admin)' : ''}
+          </Text>
+        )}
       </header>
       <div className={styles.gradientBar} />
       <main className={styles.content}>
