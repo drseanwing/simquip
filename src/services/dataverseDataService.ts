@@ -8,12 +8,18 @@ import type { ColumnAdapter } from './dataverseAdapters'
 const CONNECTOR_DATA_SOURCE = 'commondataserviceforapps'
 
 /**
+ * Dataverse organization URL. Required by the "WithOrganization" connector
+ * operations to identify which Dataverse environment to target.
+ */
+const DATAVERSE_ORG_URL = 'https://redi.crm6.dynamics.com'
+
+/**
  * Generic Dataverse implementation of {@link DataService}.
  *
- * Uses the connector-based `executeAsync` pattern (ListRecords, GetItem,
- * CreateRecord, UpdateRecord, DeleteRecord) routed through the
- * `commondataserviceforapps` connector – rather than direct SDK CRUD methods
- * which require per-table entries in dataSourcesInfo.
+ * Uses the connector-based `executeAsync` pattern with "WithOrganization"
+ * operations (ListRecordsWithOrganization, GetItemWithOrganization, etc.)
+ * routed through the `commondataserviceforapps` connector – rather than
+ * direct SDK CRUD methods which require per-table entries in dataSourcesInfo.
  *
  * Translates between camelCase TypeScript models and Dataverse redi_ columns,
  * converts choice integers ↔ string enums, and handles lookups.
@@ -62,12 +68,12 @@ export class DataverseDataService<T extends Record<string, unknown>>
     >({
       connectorOperation: {
         tableName: CONNECTOR_DATA_SOURCE,
-        operationName: 'ListRecords',
+        operationName: 'ListRecordsWithOrganization',
         parameters: params,
       },
     })
 
-    this.throwOnFailure(result, 'ListRecords')
+    this.throwOnFailure(result, 'ListRecordsWithOrganization')
 
     // Connector ListRecords returns { value: [...rows], @odata.nextLink?, @odata.count? }
     const responseData = result.data as Record<string, unknown>
@@ -90,8 +96,9 @@ export class DataverseDataService<T extends Record<string, unknown>>
     >({
       connectorOperation: {
         tableName: CONNECTOR_DATA_SOURCE,
-        operationName: 'GetItem',
+        operationName: 'GetItemWithOrganization',
         parameters: {
+          organization: DATAVERSE_ORG_URL,
           prefer: 'return=representation',
           accept: 'application/json',
           entityName: this.adapter.tableName,
@@ -106,7 +113,7 @@ export class DataverseDataService<T extends Record<string, unknown>>
       if (status === 404) {
         throw new NotFoundError(this.adapter.tableName, id)
       }
-      this.throwOnFailure(result, 'GetItem')
+      this.throwOnFailure(result, 'GetItemWithOrganization')
     }
 
     return this.fromDataverse(result.data)
@@ -121,8 +128,9 @@ export class DataverseDataService<T extends Record<string, unknown>>
     >({
       connectorOperation: {
         tableName: CONNECTOR_DATA_SOURCE,
-        operationName: 'CreateRecord',
+        operationName: 'CreateRecordWithOrganization',
         parameters: {
+          organization: DATAVERSE_ORG_URL,
           prefer: 'return=representation',
           accept: 'application/json',
           entityName: this.adapter.tableName,
@@ -131,7 +139,7 @@ export class DataverseDataService<T extends Record<string, unknown>>
       },
     })
 
-    this.throwOnFailure(result, 'CreateRecord')
+    this.throwOnFailure(result, 'CreateRecordWithOrganization')
 
     // After a successful create, retrieve the full record so the caller
     // gets a complete T (including server-generated fields).
@@ -156,8 +164,9 @@ export class DataverseDataService<T extends Record<string, unknown>>
     >({
       connectorOperation: {
         tableName: CONNECTOR_DATA_SOURCE,
-        operationName: 'UpdateRecord',
+        operationName: 'UpdateRecordWithOrganization',
         parameters: {
+          organization: DATAVERSE_ORG_URL,
           prefer: 'return=representation',
           accept: 'application/json',
           entityName: this.adapter.tableName,
@@ -167,7 +176,7 @@ export class DataverseDataService<T extends Record<string, unknown>>
       },
     })
 
-    this.throwOnFailure(result, 'UpdateRecord')
+    this.throwOnFailure(result, 'UpdateRecordWithOrganization')
 
     return this.getByIdInternal(id)
   }
@@ -179,8 +188,9 @@ export class DataverseDataService<T extends Record<string, unknown>>
     >({
       connectorOperation: {
         tableName: CONNECTOR_DATA_SOURCE,
-        operationName: 'DeleteRecord',
+        operationName: 'DeleteRecordWithOrganization',
         parameters: {
+          organization: DATAVERSE_ORG_URL,
           entityName: this.adapter.tableName,
           recordId: id,
         },
@@ -192,7 +202,7 @@ export class DataverseDataService<T extends Record<string, unknown>>
       if (status === 404) {
         throw new NotFoundError(this.adapter.tableName, id)
       }
-      this.throwOnFailure(result, 'DeleteRecord')
+      this.throwOnFailure(result, 'DeleteRecordWithOrganization')
     }
   }
 
@@ -264,6 +274,7 @@ export class DataverseDataService<T extends Record<string, unknown>>
 
   private buildListParams(options?: ListOptions): Record<string, unknown> {
     const params: Record<string, unknown> = {
+      organization: DATAVERSE_ORG_URL,
       entityName: this.adapter.tableName,
     }
 
