@@ -128,7 +128,12 @@ export default function FlowChartWizard({ data, onClose }: FlowChartWizardProps)
 
   if (steps.length === 0) {
     return (
-      <Dialog open onOpenChange={(_, d) => { if (!d.open) onClose() }}>
+      <Dialog
+        open
+        onOpenChange={(_, d) => {
+          if (!d.open) onClose()
+        }}
+      >
         <DialogSurface>
           <DialogBody>
             <DialogTitle>Quick Start Wizard</DialogTitle>
@@ -145,7 +150,12 @@ export default function FlowChartWizard({ data, onClose }: FlowChartWizardProps)
   }
 
   return (
-    <Dialog open onOpenChange={(_, d) => { if (!d.open) onClose() }}>
+    <Dialog
+      open
+      onOpenChange={(_, d) => {
+        if (!d.open) onClose()
+      }}
+    >
       <DialogSurface>
         <DialogBody>
           <DialogTitle>Quick Start Wizard</DialogTitle>
@@ -174,9 +184,11 @@ export default function FlowChartWizard({ data, onClose }: FlowChartWizardProps)
                     <div
                       key={i}
                       className={
-                        i < currentStep ? styles.dotDone :
-                        i === currentStep ? styles.dotActive :
-                        styles.dot
+                        i < currentStep
+                          ? styles.dotDone
+                          : i === currentStep
+                            ? styles.dotActive
+                            : styles.dot
                       }
                     />
                   ))}

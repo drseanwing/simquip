@@ -1,7 +1,11 @@
 import { getClient } from '@microsoft/power-apps/data'
 import type { DataClient } from '@microsoft/power-apps/data'
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo'
+
+type DataSourcesInfo = Parameters<typeof getClient>[0]
+
+const dataSourcesInfo = (
+  (globalThis as Record<string, unknown>).__DATA_SOURCES_INFO__ ?? {}
+) as DataSourcesInfo
 
 let clientInstance: DataClient | null = null
 

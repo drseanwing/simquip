@@ -262,9 +262,7 @@ export default function ContentsChecklist({
                     style={{ width: '100%' }}
                   />
                 ) : (
-                  <Text onClick={() => editing && startInlineEdit(item)}>
-                    {item.label}
-                  </Text>
+                  <Text onClick={() => editing && startInlineEdit(item)}>{item.label}</Text>
                 )}
               </TableCell>
               <TableCell>
@@ -273,7 +271,10 @@ export default function ContentsChecklist({
                     {new Date(item.lastChecked).toLocaleDateString()}
                   </Text>
                 ) : (
-                  <Text size={200} style={{ color: tokens.colorNeutralForeground3, fontStyle: 'italic' }}>
+                  <Text
+                    size={200}
+                    style={{ color: tokens.colorNeutralForeground3, fontStyle: 'italic' }}
+                  >
                     —
                   </Text>
                 )}

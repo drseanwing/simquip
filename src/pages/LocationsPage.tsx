@@ -363,6 +363,7 @@ export default function LocationsPage() {
 
   const { data, loading, error, reload } = useAsyncData(fetcher, [])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (data) {
       setBuildings(data.buildings)
@@ -372,6 +373,7 @@ export default function LocationsPage() {
       setPersons(data.persons)
     }
   }, [data])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Derived data ──────────────────────────────────────────────────────────
 

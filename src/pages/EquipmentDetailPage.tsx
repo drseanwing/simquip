@@ -24,6 +24,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   EquipmentStatus,
+  IssuePriority,
+  PMStatus,
   MediaType,
   OwnerType,
   parseContentsJson,
@@ -31,7 +33,7 @@ import {
   parseFlowChartJson,
   serializeFlowChart,
 } from '../types'
-import type { ContentsItem, Equipment, EquipmentMedia, FlowChartData, Person, Team, Location } from '../types'
+import type { ContentsItem, Equipment, EquipmentMedia, EquipmentIssue, FlowChartData, Person, PMTask, Team, Location } from '../types'
 import type { SelectTabData, SelectTabEvent } from '@fluentui/react-components'
 import StatusBadge from '../components/StatusBadge'
 import ImageGallery from '../components/equipment/ImageGallery'
@@ -137,7 +139,7 @@ const useStyles = makeStyles({
   },
 })
 
-type TabValue = 'details' | 'contents' | 'quickstart' | 'media' | 'children' | 'loans'
+type TabValue = 'details' | 'contents' | 'quickstart' | 'media' | 'children' | 'issues' | 'maintenance' | 'loans'
 
 function getOwnerDisplay(
   ownerType: string,
@@ -178,6 +180,9 @@ export default function EquipmentDetailPage() {
     teamService,
     personService,
     locationService,
+    equipmentIssueService,
+    pmTaskService,
+    pmTemplateService,
   } = useServices()
   const [selectedTab, setSelectedTab] = useState<TabValue>('details')
   const [flowchartEditing, setFlowchartEditing] = useState(false)
@@ -203,13 +208,17 @@ export default function EquipmentDetailPage() {
 
   const fetcher = useCallback(async () => {
     if (!id) throw new Error('Invalid URL')
-    const [equipment, allEquipment, media, teams, persons, locations] = await Promise.all([
+    const sanitizedId = id.replace(/'/g, "''")
+    const [equipment, allEquipment, media, teams, persons, locations, issues, pmTasks, pmTemplates] = await Promise.all([
       equipmentService.getById(id),
       equipmentService.getAll({ top: 5000 }),
-      equipmentMediaService.getAll({ top: 500, filter: `equipmentId eq '${id}'` }),
+      equipmentMediaService.getAll({ top: 500, filter: `equipmentId eq '${sanitizedId}'` }),
       teamService.getAll({ top: 500 }),
       personService.getAll({ top: 500 }),
       locationService.getAll({ top: 500 }),
+      equipmentIssueService.getAll({ top: 500, filter: `equipmentId eq '${sanitizedId}'` }),
+      pmTaskService.getAll({ top: 500, filter: `equipmentId eq '${sanitizedId}'` }),
+      pmTemplateService.getAll({ top: 500, filter: `equipmentId eq '${sanitizedId}'` }),
     ])
     const children = allEquipment.data.filter((e) => e.parentEquipmentId === id)
     return {
@@ -219,8 +228,11 @@ export default function EquipmentDetailPage() {
       teams: teams.data,
       persons: persons.data,
       locations: locations.data,
+      issues: issues.data,
+      pmTasks: pmTasks.data,
+      pmTemplates: pmTemplates.data,
     }
-  }, [id, equipmentService, equipmentMediaService, teamService, personService, locationService])
+  }, [id, equipmentService, equipmentMediaService, teamService, personService, locationService, equipmentIssueService, pmTaskService, pmTemplateService])
 
   const { data, loading, error, reload } = useAsyncData(fetcher, [id])
 
@@ -575,6 +587,108 @@ export default function EquipmentDetailPage() {
         )
       case 'loans':
         return <Text className={styles.placeholder}>No loan history.</Text>
+      case 'issues':
+        if (data.issues.length === 0) {
+          return (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: tokens.spacingVerticalM }}>
+                <Text className={styles.placeholder}>No issues reported.</Text>
+                <Button appearance="primary" onClick={() => void navigate(`/issues/new?equipmentId=${id}`)}>
+                  Report Issue
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: tokens.spacingVerticalM }}>
+              <Button appearance="primary" onClick={() => void navigate(`/issues/new?equipmentId=${id}`)}>
+                Report Issue
+              </Button>
+            </div>
+            <div className={styles.childList}>
+              {data.issues
+                .sort((a: EquipmentIssue, b: EquipmentIssue) => b.createdOn.localeCompare(a.createdOn))
+                .map((issue: EquipmentIssue) => (
+                <div
+                  key={issue.issueId}
+                  className={styles.childItem}
+                  onClick={() => void navigate(`/issues/${issue.issueId}`)}
+                >
+                  <Text weight="semibold">{issue.title}</Text>
+                  <Text size={200} style={{ color: issue.priority === IssuePriority.Critical ? tokens.colorPaletteRedForeground1 : issue.priority === IssuePriority.High ? tokens.colorPaletteDarkOrangeForeground1 : undefined }}>
+                    {issue.priority}
+                  </Text>
+                  <Text size={200}>{issue.status}</Text>
+                  <Text size={200}>Due: {issue.dueDate}</Text>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      case 'maintenance':
+        if (data.pmTasks.length === 0 && data.pmTemplates.length === 0) {
+          return (
+            <div>
+              <Text className={styles.placeholder}>No preventative maintenance scheduled.</Text>
+              <div style={{ marginTop: tokens.spacingVerticalM }}>
+                <Button appearance="primary" onClick={() => void navigate(`/maintenance/new?equipmentId=${id}`)}>
+                  Schedule PM
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: tokens.spacingVerticalM }}>
+              <Button appearance="primary" onClick={() => void navigate(`/maintenance/new?equipmentId=${id}`)}>
+                Schedule PM
+              </Button>
+            </div>
+            {data.pmTemplates.length > 0 && (
+              <div style={{ marginBottom: tokens.spacingVerticalL }}>
+                <Text weight="semibold" size={400}>PM Templates</Text>
+                <div className={styles.childList} style={{ marginTop: tokens.spacingVerticalS }}>
+                  {data.pmTemplates.map((tmpl) => (
+                    <div key={tmpl.pmTemplateId} className={styles.childItem}>
+                      <Text weight="semibold">{tmpl.name}</Text>
+                      <Text size={200}>{tmpl.frequency}</Text>
+                      <Text size={200}>{tmpl.active ? 'Active' : 'Inactive'}</Text>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {data.pmTasks.length > 0 && (
+              <div>
+                <Text weight="semibold" size={400}>PM Tasks</Text>
+                <div className={styles.childList} style={{ marginTop: tokens.spacingVerticalS }}>
+                  {data.pmTasks
+                    .sort((a: PMTask, b: PMTask) => b.scheduledDate.localeCompare(a.scheduledDate))
+                    .map((task: PMTask) => (
+                    <div
+                      key={task.pmTaskId}
+                      className={styles.childItem}
+                      onClick={() => void navigate(`/maintenance/${task.pmTaskId}`)}
+                    >
+                      <Text weight="semibold">Scheduled: {task.scheduledDate}</Text>
+                      <Text size={200} style={{
+                        color: task.status === PMStatus.Overdue ? tokens.colorPaletteRedForeground1
+                          : task.status === PMStatus.Completed ? tokens.colorPaletteGreenForeground1
+                          : undefined
+                      }}>
+                        {task.status}
+                      </Text>
+                      {task.completedDate && <Text size={200}>Completed: {task.completedDate}</Text>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
     }
   }
 
@@ -598,6 +712,8 @@ export default function EquipmentDetailPage() {
         <Tab value="quickstart">Quick Start</Tab>
         <Tab value="media">Media</Tab>
         <Tab value="children">Child Equipment</Tab>
+        <Tab value="issues">Issues{data.issues.length > 0 ? ` (${data.issues.length})` : ''}</Tab>
+        <Tab value="maintenance">Maintenance{data.pmTasks.length > 0 ? ` (${data.pmTasks.length})` : ''}</Tab>
         <Tab value="loans">Loan History</Tab>
       </TabList>
 

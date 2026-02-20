@@ -1,12 +1,31 @@
-import { EquipmentStatus, LoanReason, LoanStatus, MediaType, OwnerType } from '../types'
+import {
+  CorrectiveActionStatus,
+  EquipmentStatus,
+  IssuePriority,
+  IssueStatus,
+  LoanReason,
+  LoanStatus,
+  MediaType,
+  OwnerType,
+  PMChecklistItemStatus,
+  PMFrequency,
+  PMStatus,
+} from '../types'
 import type {
   Building,
+  CorrectiveAction,
   Equipment,
+  EquipmentIssue,
   EquipmentMedia,
+  IssueNote,
   Level,
   LoanTransfer,
   Location,
   Person,
+  PMTask,
+  PMTaskItem,
+  PMTemplate,
+  PMTemplateItem,
   Team,
   TeamMember,
 } from '../types'
@@ -56,6 +75,39 @@ const EQUIP_SUTURE_PAD = 'f1b2c3d4-0009-4000-8000-000000000009'
 const EQUIP_VENTILATOR = 'f1b2c3d4-0010-4000-8000-000000000010'
 const EQUIP_PROJECTOR = 'f1b2c3d4-0011-4000-8000-000000000011'
 const EQUIP_CAMERA = 'f1b2c3d4-0012-4000-8000-000000000012'
+
+// Module 1: Issue / Corrective Action UUIDs
+const ISSUE_CRACKED_CONN = 'i1b2c3d4-0001-4000-8000-000000000001'
+const ISSUE_MANIKIN_SKIN = 'i1b2c3d4-0002-4000-8000-000000000002'
+const ISSUE_DEFIB_BATTERY = 'i1b2c3d4-0003-4000-8000-000000000003'
+
+const NOTE_1 = 'n1b2c3d4-0001-4000-8000-000000000001'
+const NOTE_2 = 'n1b2c3d4-0002-4000-8000-000000000002'
+const NOTE_3 = 'n1b2c3d4-0003-4000-8000-000000000003'
+
+const CA_1 = 'ca1b2c3d-0001-4000-8000-000000000001'
+const CA_2 = 'ca1b2c3d-0002-4000-8000-000000000002'
+
+// Module 2: Preventative Maintenance UUIDs
+const PMT_MANIKIN_MONTHLY = 'pmt1c3d4-0001-4000-8000-000000000001'
+const PMT_DEFIB_QUARTERLY = 'pmt1c3d4-0002-4000-8000-000000000002'
+
+const PMTI_1 = 'pmti1234-0001-4000-8000-000000000001'
+const PMTI_2 = 'pmti1234-0002-4000-8000-000000000002'
+const PMTI_3 = 'pmti1234-0003-4000-8000-000000000003'
+const PMTI_4 = 'pmti1234-0004-4000-8000-000000000004'
+const PMTI_5 = 'pmti1234-0005-4000-8000-000000000005'
+const PMTI_6 = 'pmti1234-0006-4000-8000-000000000006'
+
+const PMTASK_1 = 'pmtask12-0001-4000-8000-000000000001'
+const PMTASK_2 = 'pmtask12-0002-4000-8000-000000000002'
+
+const PMTASKI_1 = 'pmtaski1-0001-4000-8000-000000000001'
+const PMTASKI_2 = 'pmtaski1-0002-4000-8000-000000000002'
+const PMTASKI_3 = 'pmtaski1-0003-4000-8000-000000000003'
+const PMTASKI_4 = 'pmtaski1-0004-4000-8000-000000000004'
+const PMTASKI_5 = 'pmtaski1-0005-4000-8000-000000000005'
+const PMTASKI_6 = 'pmtaski1-0006-4000-8000-000000000006'
 
 // ── Seed Data Arrays ────────────────────────────────────────────────────────
 
@@ -173,6 +225,55 @@ const seedLoanTransfers: LoanTransfer[] = [
   { loanTransferId: 'g1b2c3d4-0004-4000-8000-000000000004', equipmentId: EQUIP_CAMERA, startDate: '2026-02-14', dueDate: '2026-02-21', originTeamId: TEAM_SIM, recipientTeamId: TEAM_BIOMEDICAL, reasonCode: LoanReason.Service, approverPersonId: PERSON_DAN, isInternalTransfer: false, status: LoanStatus.Active, notes: 'Camera sent for firmware update' },
 ]
 
+// ── Module 1: Issue / Corrective Action Seed Data ─────────────────────────
+
+const seedIssues: EquipmentIssue[] = [
+  { issueId: ISSUE_CRACKED_CONN, equipmentId: EQUIP_VENTILATOR, title: 'Cracked power connector', description: 'The main power connector housing has a visible crack and intermittent connection issues.', reportedByPersonId: PERSON_DAN, assignedToPersonId: PERSON_FRANK, status: IssueStatus.InProgress, priority: IssuePriority.High, dueDate: '2026-02-27', createdOn: '2026-02-20', resolvedOn: null, active: true },
+  { issueId: ISSUE_MANIKIN_SKIN, equipmentId: EQUIP_MANIKIN, title: 'Torn skin overlay', description: 'The chest skin overlay on the adult manikin has a 5cm tear near the sternum area.', reportedByPersonId: PERSON_ALICE, assignedToPersonId: null, status: IssueStatus.Open, priority: IssuePriority.Medium, dueDate: '2026-02-27', createdOn: '2026-02-20', resolvedOn: null, active: true },
+  { issueId: ISSUE_DEFIB_BATTERY, equipmentId: EQUIP_DEFIB_TRAINER, title: 'Battery not holding charge', description: 'Defibrillator trainer battery depletes within 30 minutes of full charge.', reportedByPersonId: PERSON_DAN, assignedToPersonId: PERSON_FRANK, status: IssueStatus.Resolved, priority: IssuePriority.High, dueDate: '2026-02-15', createdOn: '2026-02-08', resolvedOn: '2026-02-14', active: true },
+]
+
+const seedIssueNotes: IssueNote[] = [
+  { issueNoteId: NOTE_1, issueId: ISSUE_CRACKED_CONN, authorPersonId: PERSON_DAN, content: 'Noticed during setup for the Wednesday simulation. Connector works if wiggled but is unreliable.', createdOn: '2026-02-20T09:30:00Z' },
+  { issueNoteId: NOTE_2, issueId: ISSUE_CRACKED_CONN, authorPersonId: PERSON_FRANK, content: 'I have inspected the connector. Will need a replacement part ordered from the manufacturer. Estimated 3 day lead time.', createdOn: '2026-02-21T14:15:00Z' },
+  { issueNoteId: NOTE_3, issueId: ISSUE_DEFIB_BATTERY, authorPersonId: PERSON_FRANK, content: 'Replaced with new battery pack. Unit now holds charge for 4+ hours. Verified with full load test.', createdOn: '2026-02-14T11:00:00Z' },
+]
+
+const seedCorrectiveActions: CorrectiveAction[] = [
+  { correctiveActionId: CA_1, issueId: ISSUE_CRACKED_CONN, description: 'Order replacement power connector assembly (Part #VC-PWR-2024) from manufacturer', assignedToPersonId: PERSON_FRANK, status: CorrectiveActionStatus.InProgress, equipmentStatusChange: null, completedOn: null, createdOn: '2026-02-21T14:30:00Z' },
+  { correctiveActionId: CA_2, issueId: ISSUE_DEFIB_BATTERY, description: 'Replace battery pack with new OEM battery (Part #DT-BAT-001)', assignedToPersonId: PERSON_FRANK, status: CorrectiveActionStatus.Completed, equipmentStatusChange: EquipmentStatus.Available, completedOn: '2026-02-14T10:45:00Z', createdOn: '2026-02-09T08:00:00Z' },
+]
+
+// ── Module 2: Preventative Maintenance Seed Data ──────────────────────────
+
+const seedPMTemplates: PMTemplate[] = [
+  { pmTemplateId: PMT_MANIKIN_MONTHLY, equipmentId: EQUIP_MANIKIN, name: 'Monthly Manikin Inspection', description: 'Standard monthly inspection of adult patient simulator manikin', frequency: PMFrequency.Monthly, active: true },
+  { pmTemplateId: PMT_DEFIB_QUARTERLY, equipmentId: EQUIP_DEFIB_TRAINER, name: 'Quarterly Defib Trainer Check', description: 'Quarterly maintenance check for defibrillator training unit', frequency: PMFrequency.Quarterly, active: true },
+]
+
+const seedPMTemplateItems: PMTemplateItem[] = [
+  { pmTemplateItemId: PMTI_1, pmTemplateId: PMT_MANIKIN_MONTHLY, description: 'Check skin overlays for tears or damage', sortOrder: 0 },
+  { pmTemplateItemId: PMTI_2, pmTemplateId: PMT_MANIKIN_MONTHLY, description: 'Verify chest compression feedback sensors', sortOrder: 1 },
+  { pmTemplateItemId: PMTI_3, pmTemplateId: PMT_MANIKIN_MONTHLY, description: 'Test airway patency and lung inflation', sortOrder: 2 },
+  { pmTemplateItemId: PMTI_4, pmTemplateId: PMT_DEFIB_QUARTERLY, description: 'Test battery charge and discharge cycle', sortOrder: 0 },
+  { pmTemplateItemId: PMTI_5, pmTemplateId: PMT_DEFIB_QUARTERLY, description: 'Verify pad connections and visual indicators', sortOrder: 1 },
+  { pmTemplateItemId: PMTI_6, pmTemplateId: PMT_DEFIB_QUARTERLY, description: 'Clean unit exterior and check for physical damage', sortOrder: 2 },
+]
+
+const seedPMTasks: PMTask[] = [
+  { pmTaskId: PMTASK_1, pmTemplateId: PMT_MANIKIN_MONTHLY, equipmentId: EQUIP_MANIKIN, scheduledDate: '2026-03-01', completedDate: null, completedByPersonId: null, status: PMStatus.Scheduled, notes: '', generatedIssueId: null },
+  { pmTaskId: PMTASK_2, pmTemplateId: PMT_DEFIB_QUARTERLY, equipmentId: EQUIP_DEFIB_TRAINER, scheduledDate: '2026-04-01', completedDate: null, completedByPersonId: null, status: PMStatus.Scheduled, notes: '', generatedIssueId: null },
+]
+
+const seedPMTaskItems: PMTaskItem[] = [
+  { pmTaskItemId: PMTASKI_1, pmTaskId: PMTASK_1, pmTemplateItemId: PMTI_1, description: 'Check skin overlays for tears or damage', status: PMChecklistItemStatus.Pending, notes: '', sortOrder: 0 },
+  { pmTaskItemId: PMTASKI_2, pmTaskId: PMTASK_1, pmTemplateItemId: PMTI_2, description: 'Verify chest compression feedback sensors', status: PMChecklistItemStatus.Pending, notes: '', sortOrder: 1 },
+  { pmTaskItemId: PMTASKI_3, pmTaskId: PMTASK_1, pmTemplateItemId: PMTI_3, description: 'Test airway patency and lung inflation', status: PMChecklistItemStatus.Pending, notes: '', sortOrder: 2 },
+  { pmTaskItemId: PMTASKI_4, pmTaskId: PMTASK_2, pmTemplateItemId: PMTI_4, description: 'Test battery charge and discharge cycle', status: PMChecklistItemStatus.Pending, notes: '', sortOrder: 0 },
+  { pmTaskItemId: PMTASKI_5, pmTaskId: PMTASK_2, pmTemplateItemId: PMTI_5, description: 'Verify pad connections and visual indicators', status: PMChecklistItemStatus.Pending, notes: '', sortOrder: 1 },
+  { pmTaskItemId: PMTASKI_6, pmTaskId: PMTASK_2, pmTemplateItemId: PMTI_6, description: 'Clean unit exterior and check for physical damage', status: PMChecklistItemStatus.Pending, notes: '', sortOrder: 2 },
+]
+
 // ── Seed All Data ──────────────────────────────────────────────────────────
 
 export async function seedAllData(
@@ -258,14 +359,62 @@ export async function seedAllData(
   }
   onProgress(`  Created ${seedLoanTransfers.length} loan transfers`)
 
+  // 11. Equipment Issues (deps: Equipment, Person)
+  onProgress('Creating equipment issues...')
+  for (const issue of seedIssues) {
+    await services.equipmentIssueService.create(issue)
+  }
+  onProgress(`  Created ${seedIssues.length} equipment issues`)
+
+  // 12. Issue Notes (deps: EquipmentIssue, Person)
+  onProgress('Creating issue notes...')
+  for (const note of seedIssueNotes) {
+    await services.issueNoteService.create(note)
+  }
+  onProgress(`  Created ${seedIssueNotes.length} issue notes`)
+
+  // 13. Corrective Actions (deps: EquipmentIssue, Person)
+  onProgress('Creating corrective actions...')
+  for (const ca of seedCorrectiveActions) {
+    await services.correctiveActionService.create(ca)
+  }
+  onProgress(`  Created ${seedCorrectiveActions.length} corrective actions`)
+
+  // 14. PM Templates (deps: Equipment)
+  onProgress('Creating PM templates...')
+  for (const pmt of seedPMTemplates) {
+    await services.pmTemplateService.create(pmt)
+  }
+  onProgress(`  Created ${seedPMTemplates.length} PM templates`)
+
+  // 15. PM Template Items (deps: PMTemplate)
+  onProgress('Creating PM template items...')
+  for (const pmti of seedPMTemplateItems) {
+    await services.pmTemplateItemService.create(pmti)
+  }
+  onProgress(`  Created ${seedPMTemplateItems.length} PM template items`)
+
+  // 16. PM Tasks (deps: PMTemplate, Equipment)
+  onProgress('Creating PM tasks...')
+  for (const task of seedPMTasks) {
+    await services.pmTaskService.create(task)
+  }
+  onProgress(`  Created ${seedPMTasks.length} PM tasks`)
+
+  // 17. PM Task Items (deps: PMTask, PMTemplateItem)
+  onProgress('Creating PM task items...')
+  for (const item of seedPMTaskItems) {
+    await services.pmTaskItemService.create(item)
+  }
+  onProgress(`  Created ${seedPMTaskItems.length} PM task items`)
+
   onProgress('Seed complete!')
 }
 
 // ── Clear All Data ────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function deleteAll(
-  service: DataService<any>,
+  service: DataService<unknown>,
   idField: string,
   nameField: string,
   label: string,
@@ -307,7 +456,35 @@ export async function clearAllData(
 
   // Delete in reverse FK order (leaf entities first)
 
-  // 1. Loan Transfers
+  // 1. PM Task Items (leaf)
+  onProgress(`${verb} PM task items...`)
+  await deleteAll(services.pmTaskItemService, 'pmTaskItemId', 'description', 'PM task items', onProgress, dryRun)
+
+  // 2. PM Tasks
+  onProgress(`${verb} PM tasks...`)
+  await deleteAll(services.pmTaskService, 'pmTaskId', 'notes', 'PM tasks', onProgress, dryRun)
+
+  // 3. PM Template Items
+  onProgress(`${verb} PM template items...`)
+  await deleteAll(services.pmTemplateItemService, 'pmTemplateItemId', 'description', 'PM template items', onProgress, dryRun)
+
+  // 4. PM Templates
+  onProgress(`${verb} PM templates...`)
+  await deleteAll(services.pmTemplateService, 'pmTemplateId', 'name', 'PM templates', onProgress, dryRun)
+
+  // 5. Corrective Actions
+  onProgress(`${verb} corrective actions...`)
+  await deleteAll(services.correctiveActionService, 'correctiveActionId', 'description', 'corrective actions', onProgress, dryRun)
+
+  // 6. Issue Notes
+  onProgress(`${verb} issue notes...`)
+  await deleteAll(services.issueNoteService, 'issueNoteId', 'content', 'issue notes', onProgress, dryRun)
+
+  // 7. Equipment Issues
+  onProgress(`${verb} equipment issues...`)
+  await deleteAll(services.equipmentIssueService, 'issueId', 'title', 'equipment issues', onProgress, dryRun)
+
+  // 8. Loan Transfers
   onProgress(`${verb} loan transfers...`)
   await deleteAll(services.loanTransferService, 'loanTransferId', 'notes', 'loan transfers', onProgress, dryRun)
 

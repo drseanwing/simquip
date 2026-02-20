@@ -10,6 +10,8 @@ The app supports:
 - Structured locations (Building > Level > Location)
 - Loan/transfer workflows with approval metadata
 - Attachments, images, and interactive guidance content
+- Issue and corrective action tracking with conversation-style notes
+- Preventative maintenance scheduling with checklists and auto-generation
 
 Out of scope for initial release:
 - Full reminder automation implementation (Power Automate integration points are defined, but flow logic is handled externally)
@@ -200,6 +202,93 @@ Rules:
 - `LoanReason` (Simulation, Training, Service, Other)
 - `EquipmentStatus` (Available, InUse, UnderMaintenance, Retired)
 - `LoanStatus` (Draft, Active, Overdue, Returned, Cancelled)
+- `IssueStatus` (Open, InProgress, AwaitingParts, Resolved, Closed)
+- `IssuePriority` (Low, Medium, High, Critical)
+- `CorrectiveActionStatus` (Planned, InProgress, Completed, Verified)
+- `PMStatus` (Scheduled, InProgress, Completed, Overdue, Cancelled)
+- `PMFrequency` (Weekly, Monthly, Quarterly, SemiAnnual, Annual)
+- `PMChecklistItemStatus` (Pending, Pass, Fail, NotApplicable)
+
+### 4.12 EquipmentIssue
+- `issueId` (PK)
+- `equipmentId` (FK -> Equipment)
+- `title`
+- `description`
+- `reportedByPersonId` (FK -> Person)
+- `assignedToPersonId` (nullable FK -> Person)
+- `status` (enum: IssueStatus)
+- `priority` (enum: IssuePriority)
+- `dueDate` (auto-populated: 7 days from creation)
+- `createdOn`
+- `resolvedOn` (nullable, auto-set when status becomes Resolved/Closed)
+- `active`
+
+Rules:
+- `dueDate` is automatically set to 7 days from creation if not provided.
+- `resolvedOn` is automatically set when status transitions to Resolved or Closed.
+- Equipment owner is notified via email when a new issue is created.
+
+### 4.13 IssueNote
+- `issueNoteId` (PK)
+- `issueId` (FK -> EquipmentIssue)
+- `authorPersonId` (FK -> Person)
+- `content`
+- `createdOn`
+
+Rules:
+- Notes provide a conversation-style thread against an issue.
+
+### 4.14 CorrectiveAction
+- `correctiveActionId` (PK)
+- `issueId` (FK -> EquipmentIssue)
+- `description`
+- `assignedToPersonId` (FK -> Person)
+- `status` (enum: CorrectiveActionStatus)
+- `equipmentStatusChange` (nullable, enum: EquipmentStatus)
+- `completedOn` (nullable)
+- `createdOn`
+
+Rules:
+- When a corrective action is completed with `equipmentStatusChange` set, the equipment's status is automatically updated.
+
+### 4.15 PMTemplate
+- `pmTemplateId` (PK)
+- `equipmentId` (FK -> Equipment)
+- `name`
+- `description`
+- `frequency` (enum: PMFrequency)
+- `active`
+
+### 4.16 PMTemplateItem
+- `pmTemplateItemId` (PK)
+- `pmTemplateId` (FK -> PMTemplate)
+- `description`
+- `sortOrder`
+
+### 4.17 PMTask
+- `pmTaskId` (PK)
+- `pmTemplateId` (FK -> PMTemplate)
+- `equipmentId` (FK -> Equipment)
+- `scheduledDate`
+- `completedDate` (nullable)
+- `completedByPersonId` (nullable FK -> Person)
+- `status` (enum: PMStatus)
+- `notes`
+- `generatedIssueId` (nullable FK -> EquipmentIssue)
+
+Rules:
+- When a PM task is completed, the next PM task is automatically created based on the template frequency.
+- If any checklist items have Fail status on completion, an EquipmentIssue is automatically created.
+- `completedDate >= scheduledDate` when provided.
+
+### 4.18 PMTaskItem
+- `pmTaskItemId` (PK)
+- `pmTaskId` (FK -> PMTask)
+- `pmTemplateItemId` (FK -> PMTemplateItem)
+- `description`
+- `status` (enum: PMChecklistItemStatus)
+- `notes`
+- `sortOrder`
 
 ## 5. Naming Conventions
 - TypeScript:

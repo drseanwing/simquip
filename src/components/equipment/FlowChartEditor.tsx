@@ -25,7 +25,12 @@ import {
   Textarea,
   tokens,
 } from '@fluentui/react-components'
-import { SaveRegular, DismissRegular, AddCircleRegular, ArrowSortRegular } from '@fluentui/react-icons'
+import {
+  SaveRegular,
+  DismissRegular,
+  AddCircleRegular,
+  ArrowSortRegular,
+} from '@fluentui/react-icons'
 import { flowChartNodeTypes } from './FlowChartNodeTypes'
 import type { FlowChartData } from '../../types'
 import { FlowNodeType, createEmptyFlowChart } from '../../types'
