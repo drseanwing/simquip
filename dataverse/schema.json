@@ -258,6 +258,336 @@
           "target": "redi_person"
         }
       ]
+    },
+    {
+      "logicalName": "redi_equipmentissue",
+      "displayName": "Equipment Issue",
+      "pluralName": "Equipment Issues",
+      "description": "Issue and corrective action tracking for equipment items",
+      "primaryNameColumn": "redi_title",
+      "columns": [
+        {
+          "logicalName": "redi_title",
+          "displayName": "Title",
+          "type": "String",
+          "maxLength": 500,
+          "required": true
+        },
+        {
+          "logicalName": "redi_description",
+          "displayName": "Description",
+          "type": "Memo"
+        },
+        {
+          "logicalName": "redi_issuestatus",
+          "displayName": "Issue Status",
+          "type": "Choice",
+          "options": ["Open", "InProgress", "AwaitingParts", "Resolved", "Closed"]
+        },
+        {
+          "logicalName": "redi_issuepriority",
+          "displayName": "Priority",
+          "type": "Choice",
+          "options": ["Low", "Medium", "High", "Critical"]
+        },
+        {
+          "logicalName": "redi_duedate",
+          "displayName": "Due Date",
+          "type": "DateOnly"
+        },
+        {
+          "logicalName": "redi_createdon",
+          "displayName": "Created On",
+          "type": "DateOnly"
+        },
+        {
+          "logicalName": "redi_resolvedon",
+          "displayName": "Resolved On",
+          "type": "DateOnly"
+        },
+        {
+          "logicalName": "redi_active",
+          "displayName": "Active",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "logicalName": "redi_equipmentid",
+          "displayName": "Equipment",
+          "type": "Lookup",
+          "target": "redi_equipment",
+          "required": true
+        },
+        {
+          "logicalName": "redi_reportedbypersonid",
+          "displayName": "Reported By",
+          "type": "Lookup",
+          "target": "redi_person",
+          "required": true
+        },
+        {
+          "logicalName": "redi_assignedtopersonid",
+          "displayName": "Assigned To",
+          "type": "Lookup",
+          "target": "redi_person"
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_issuenote",
+      "displayName": "Issue Note",
+      "pluralName": "Issue Notes",
+      "description": "Conversation-style notes against equipment issues",
+      "primaryNameColumn": "redi_issuenote_name",
+      "columns": [
+        {
+          "logicalName": "redi_content",
+          "displayName": "Content",
+          "type": "Memo",
+          "required": true
+        },
+        {
+          "logicalName": "redi_createdon",
+          "displayName": "Created On",
+          "type": "DateTime"
+        },
+        {
+          "logicalName": "redi_equipmentissueid",
+          "displayName": "Equipment Issue",
+          "type": "Lookup",
+          "target": "redi_equipmentissue",
+          "required": true
+        },
+        {
+          "logicalName": "redi_authorpersonid",
+          "displayName": "Author",
+          "type": "Lookup",
+          "target": "redi_person",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_correctiveaction",
+      "displayName": "Corrective Action",
+      "pluralName": "Corrective Actions",
+      "description": "Documented corrective actions linked to equipment issues",
+      "primaryNameColumn": "redi_correctiveaction_name",
+      "columns": [
+        {
+          "logicalName": "redi_description",
+          "displayName": "Description",
+          "type": "Memo",
+          "required": true
+        },
+        {
+          "logicalName": "redi_actionstatus",
+          "displayName": "Action Status",
+          "type": "Choice",
+          "options": ["Planned", "InProgress", "Completed", "Verified"]
+        },
+        {
+          "logicalName": "redi_equipmentstatuschange",
+          "displayName": "Equipment Status Change",
+          "type": "Choice",
+          "options": ["Available", "InUse", "UnderMaintenance", "Retired"]
+        },
+        {
+          "logicalName": "redi_completedon",
+          "displayName": "Completed On",
+          "type": "DateTime"
+        },
+        {
+          "logicalName": "redi_createdon",
+          "displayName": "Created On",
+          "type": "DateTime"
+        },
+        {
+          "logicalName": "redi_equipmentissueid",
+          "displayName": "Equipment Issue",
+          "type": "Lookup",
+          "target": "redi_equipmentissue",
+          "required": true
+        },
+        {
+          "logicalName": "redi_assignedtopersonid",
+          "displayName": "Assigned To",
+          "type": "Lookup",
+          "target": "redi_person",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_pmtemplate",
+      "displayName": "PM Template",
+      "pluralName": "PM Templates",
+      "description": "Preventative maintenance checklist templates for equipment",
+      "primaryNameColumn": "redi_name",
+      "columns": [
+        {
+          "logicalName": "redi_name",
+          "displayName": "Name",
+          "type": "String",
+          "maxLength": 500,
+          "required": true
+        },
+        {
+          "logicalName": "redi_description",
+          "displayName": "Description",
+          "type": "Memo"
+        },
+        {
+          "logicalName": "redi_frequency",
+          "displayName": "Frequency",
+          "type": "Choice",
+          "options": ["Weekly", "Monthly", "Quarterly", "SemiAnnual", "Annual"]
+        },
+        {
+          "logicalName": "redi_active",
+          "displayName": "Active",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "logicalName": "redi_equipmentid",
+          "displayName": "Equipment",
+          "type": "Lookup",
+          "target": "redi_equipment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_pmtemplateitem",
+      "displayName": "PM Template Item",
+      "pluralName": "PM Template Items",
+      "description": "Individual checklist items within a PM template",
+      "primaryNameColumn": "redi_pmtemplateitem_name",
+      "columns": [
+        {
+          "logicalName": "redi_description",
+          "displayName": "Description",
+          "type": "String",
+          "maxLength": 1000,
+          "required": true
+        },
+        {
+          "logicalName": "redi_sortorder",
+          "displayName": "Sort Order",
+          "type": "Integer"
+        },
+        {
+          "logicalName": "redi_pmtemplateid",
+          "displayName": "PM Template",
+          "type": "Lookup",
+          "target": "redi_pmtemplate",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_pmtask",
+      "displayName": "PM Task",
+      "pluralName": "PM Tasks",
+      "description": "Scheduled preventative maintenance task instances",
+      "primaryNameColumn": "redi_pmtask_name",
+      "columns": [
+        {
+          "logicalName": "redi_scheduleddate",
+          "displayName": "Scheduled Date",
+          "type": "DateOnly",
+          "required": true
+        },
+        {
+          "logicalName": "redi_completeddate",
+          "displayName": "Completed Date",
+          "type": "DateOnly"
+        },
+        {
+          "logicalName": "redi_pmstatus",
+          "displayName": "PM Status",
+          "type": "Choice",
+          "options": ["Scheduled", "InProgress", "Completed", "Overdue", "Cancelled"]
+        },
+        {
+          "logicalName": "redi_notes",
+          "displayName": "Notes",
+          "type": "Memo"
+        },
+        {
+          "logicalName": "redi_pmtemplateid",
+          "displayName": "PM Template",
+          "type": "Lookup",
+          "target": "redi_pmtemplate",
+          "required": true
+        },
+        {
+          "logicalName": "redi_equipmentid",
+          "displayName": "Equipment",
+          "type": "Lookup",
+          "target": "redi_equipment",
+          "required": true
+        },
+        {
+          "logicalName": "redi_completedbypersonid",
+          "displayName": "Completed By",
+          "type": "Lookup",
+          "target": "redi_person"
+        },
+        {
+          "logicalName": "redi_generatedissueid",
+          "displayName": "Generated Issue",
+          "type": "Lookup",
+          "target": "redi_equipmentissue"
+        }
+      ]
+    },
+    {
+      "logicalName": "redi_pmtaskitem",
+      "displayName": "PM Task Item",
+      "pluralName": "PM Task Items",
+      "description": "Individual checklist items for a PM task instance",
+      "primaryNameColumn": "redi_pmtaskitem_name",
+      "columns": [
+        {
+          "logicalName": "redi_description",
+          "displayName": "Description",
+          "type": "String",
+          "maxLength": 1000,
+          "required": true
+        },
+        {
+          "logicalName": "redi_checkliststatus",
+          "displayName": "Checklist Status",
+          "type": "Choice",
+          "options": ["Pending", "Pass", "Fail", "NotApplicable"]
+        },
+        {
+          "logicalName": "redi_notes",
+          "displayName": "Notes",
+          "type": "Memo"
+        },
+        {
+          "logicalName": "redi_sortorder",
+          "displayName": "Sort Order",
+          "type": "Integer"
+        },
+        {
+          "logicalName": "redi_pmtaskid",
+          "displayName": "PM Task",
+          "type": "Lookup",
+          "target": "redi_pmtask",
+          "required": true
+        },
+        {
+          "logicalName": "redi_pmtemplateitemid",
+          "displayName": "PM Template Item",
+          "type": "Lookup",
+          "target": "redi_pmtemplateitem",
+          "required": true
+        }
+      ]
     }
   ]
 }

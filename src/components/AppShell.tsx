@@ -19,6 +19,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/', label: 'Dashboard', adminOnly: false },
   { path: '/equipment', label: 'Equipment', adminOnly: false },
+  { path: '/issues', label: 'Issues', adminOnly: false },
+  { path: '/maintenance', label: 'Maintenance', adminOnly: false },
   { path: '/locations', label: 'Locations', adminOnly: true },
   { path: '/people', label: 'People', adminOnly: true },
   { path: '/teams', label: 'Teams', adminOnly: true },
@@ -90,6 +92,8 @@ const useStyles = makeStyles({
 
 function resolveSelectedTab(pathname: string): string {
   if (pathname.startsWith('/equipment')) return '/equipment'
+  if (pathname.startsWith('/issues')) return '/issues'
+  if (pathname.startsWith('/maintenance')) return '/maintenance'
   if (pathname.startsWith('/locations')) return '/locations'
   if (pathname.startsWith('/people')) return '/people'
   if (pathname.startsWith('/teams')) return '/teams'
