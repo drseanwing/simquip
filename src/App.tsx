@@ -21,6 +21,9 @@ const LoanCreatePage = lazy(() => import('./pages/LoanCreatePage'))
 const IssueListPage = lazy(() => import('./pages/IssueListPage'))
 const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage'))
 const IssueCreatePage = lazy(() => import('./pages/IssueCreatePage'))
+const PMListPage = lazy(() => import('./pages/PMListPage'))
+const PMCreatePage = lazy(() => import('./pages/PMCreatePage'))
+const PMDetailPage = lazy(() => import('./pages/PMDetailPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 export default function App() {
@@ -47,6 +50,9 @@ export default function App() {
             <Route path="issues" element={<IssueListPage />} />
             <Route path="issues/new" element={<IssueCreatePage />} />
             <Route path="issues/:id" element={<IssueDetailPage />} />
+            <Route path="maintenance" element={<PMListPage />} />
+            <Route path="maintenance/new" element={<PMCreatePage />} />
+            <Route path="maintenance/:id" element={<PMDetailPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
