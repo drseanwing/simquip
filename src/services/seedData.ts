@@ -413,9 +413,8 @@ export async function seedAllData(
 
 // ── Clear All Data ────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function deleteAll(
-  service: DataService<any>,
+  service: DataService<unknown>,
   idField: string,
   nameField: string,
   label: string,

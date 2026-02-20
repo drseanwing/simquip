@@ -24,7 +24,6 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   EquipmentStatus,
-  IssueStatus,
   IssuePriority,
   PMStatus,
   MediaType,

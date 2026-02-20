@@ -82,9 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => {
     if (!upn) return { user: null, isAdmin: false, loading }
 
-    const isAdmin = ADMIN_UPNS.some(
-      (admin) => admin.toLowerCase() === upn.toLowerCase(),
-    )
+    const isAdmin = ADMIN_UPNS.some((admin) => admin.toLowerCase() === upn.toLowerCase())
 
     return {
       user: {
@@ -103,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
   return useContext(AuthContext)
 }
@@ -112,6 +111,7 @@ export function useAuth(): AuthContextValue {
  * Admin can edit anything; otherwise user must own the equipment
  * (directly as a person or via team membership).
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function canEditEquipment(
   user: AuthUser | null,
   ownerPersonId: string | null,

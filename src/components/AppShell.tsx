@@ -140,7 +140,8 @@ export default function AppShell() {
         </nav>
         {user && (
           <Text className={styles.userInfo}>
-            {user.fullName}{isAdmin ? ' (Admin)' : ''}
+            {user.fullName}
+            {isAdmin ? ' (Admin)' : ''}
           </Text>
         )}
       </header>
