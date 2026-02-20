@@ -5,10 +5,36 @@ import {
   validateTeam,
   validateLocation,
   validatePerson,
+  validateEquipmentIssue,
+  validateIssueNote,
+  validateCorrectiveAction,
+  validatePMTemplate,
+  validatePMTask,
 } from './validators.ts'
 import { ValidationError } from '../errors/index.ts'
-import { OwnerType, EquipmentStatus, LoanStatus, LoanReason } from '../types/index.ts'
-import type { Equipment, LoanTransfer, Team, Location, Person } from '../types/index.ts'
+import {
+  OwnerType,
+  EquipmentStatus,
+  LoanStatus,
+  LoanReason,
+  IssueStatus,
+  IssuePriority,
+  CorrectiveActionStatus,
+  PMFrequency,
+  PMStatus,
+} from '../types/index.ts'
+import type {
+  Equipment,
+  LoanTransfer,
+  Team,
+  Location,
+  Person,
+  EquipmentIssue,
+  IssueNote,
+  CorrectiveAction,
+  PMTemplate,
+  PMTask,
+} from '../types/index.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,6 +106,71 @@ function validPerson(): Person {
     phone: '0412345678',
     teamId: 'team-1',
     active: true,
+  }
+}
+
+function validEquipmentIssue(): EquipmentIssue {
+  return {
+    issueId: 'issue-1',
+    equipmentId: 'eq-1',
+    title: 'Damaged connector',
+    description: 'The power connector is cracked',
+    reportedByPersonId: 'person-1',
+    assignedToPersonId: 'person-2',
+    status: IssueStatus.Open,
+    priority: IssuePriority.Medium,
+    dueDate: '2026-02-27',
+    createdOn: '2026-02-20',
+    resolvedOn: null,
+    active: true,
+  }
+}
+
+function validIssueNote(): IssueNote {
+  return {
+    issueNoteId: 'note-1',
+    issueId: 'issue-1',
+    authorPersonId: 'person-1',
+    content: 'Inspection scheduled for tomorrow',
+    createdOn: '2026-02-20T10:00:00Z',
+  }
+}
+
+function validCorrectiveAction(): CorrectiveAction {
+  return {
+    correctiveActionId: 'ca-1',
+    issueId: 'issue-1',
+    description: 'Replace damaged connector',
+    assignedToPersonId: 'person-2',
+    status: CorrectiveActionStatus.Planned,
+    equipmentStatusChange: null,
+    completedOn: null,
+    createdOn: '2026-02-20T10:00:00Z',
+  }
+}
+
+function validPMTemplate(): PMTemplate {
+  return {
+    pmTemplateId: 'pmt-1',
+    equipmentId: 'eq-1',
+    name: 'Monthly Inspection',
+    description: 'Standard monthly equipment check',
+    frequency: PMFrequency.Monthly,
+    active: true,
+  }
+}
+
+function validPMTask(): PMTask {
+  return {
+    pmTaskId: 'pmtask-1',
+    pmTemplateId: 'pmt-1',
+    equipmentId: 'eq-1',
+    scheduledDate: '2026-03-01',
+    completedDate: null,
+    completedByPersonId: null,
+    status: PMStatus.Scheduled,
+    notes: '',
+    generatedIssueId: null,
   }
 }
 
@@ -412,5 +503,177 @@ describe('validatePerson', () => {
     expect(errors).toHaveLength(2)
     expect(fieldError(errors, 'displayName')).toBeDefined()
     expect(fieldError(errors, 'email')).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// EquipmentIssue validation
+// ---------------------------------------------------------------------------
+
+describe('validateEquipmentIssue', () => {
+  it('returns no errors for a valid equipment issue', () => {
+    const errors = validateEquipmentIssue(validEquipmentIssue())
+    expect(errors).toHaveLength(0)
+  })
+
+  it.each([
+    'title',
+    'equipmentId',
+    'reportedByPersonId',
+    'status',
+    'priority',
+    'dueDate',
+  ] as const)('returns error when %s is missing', (field) => {
+    const issue = { ...validEquipmentIssue(), [field]: undefined }
+    const errors = validateEquipmentIssue(issue)
+    expect(fieldError(errors, field)).toBeDefined()
+    expect(fieldError(errors, field)).toBeInstanceOf(ValidationError)
+  })
+
+  it('returns error when title is empty string', () => {
+    const issue = { ...validEquipmentIssue(), title: '' }
+    const errors = validateEquipmentIssue(issue)
+    expect(fieldError(errors, 'title')).toBeDefined()
+  })
+
+  it('returns multiple errors when multiple fields are missing', () => {
+    const errors = validateEquipmentIssue({})
+    expect(errors.length).toBeGreaterThanOrEqual(6)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// IssueNote validation
+// ---------------------------------------------------------------------------
+
+describe('validateIssueNote', () => {
+  it('returns no errors for a valid issue note', () => {
+    const errors = validateIssueNote(validIssueNote())
+    expect(errors).toHaveLength(0)
+  })
+
+  it.each(['issueId', 'authorPersonId', 'content'] as const)(
+    'returns error when %s is missing',
+    (field) => {
+      const note = { ...validIssueNote(), [field]: undefined }
+      const errors = validateIssueNote(note)
+      expect(fieldError(errors, field)).toBeDefined()
+      expect(fieldError(errors, field)).toBeInstanceOf(ValidationError)
+    },
+  )
+
+  it('returns error when content is empty string', () => {
+    const note = { ...validIssueNote(), content: '' }
+    const errors = validateIssueNote(note)
+    expect(fieldError(errors, 'content')).toBeDefined()
+  })
+
+  it('returns multiple errors when multiple fields are missing', () => {
+    const errors = validateIssueNote({})
+    expect(errors.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CorrectiveAction validation
+// ---------------------------------------------------------------------------
+
+describe('validateCorrectiveAction', () => {
+  it('returns no errors for a valid corrective action', () => {
+    const errors = validateCorrectiveAction(validCorrectiveAction())
+    expect(errors).toHaveLength(0)
+  })
+
+  it.each(['issueId', 'description', 'assignedToPersonId', 'status'] as const)(
+    'returns error when %s is missing',
+    (field) => {
+      const action = { ...validCorrectiveAction(), [field]: undefined }
+      const errors = validateCorrectiveAction(action)
+      expect(fieldError(errors, field)).toBeDefined()
+      expect(fieldError(errors, field)).toBeInstanceOf(ValidationError)
+    },
+  )
+
+  it('returns error when description is empty string', () => {
+    const action = { ...validCorrectiveAction(), description: '' }
+    const errors = validateCorrectiveAction(action)
+    expect(fieldError(errors, 'description')).toBeDefined()
+  })
+
+  it('returns multiple errors when multiple fields are missing', () => {
+    const errors = validateCorrectiveAction({})
+    expect(errors.length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PMTemplate validation
+// ---------------------------------------------------------------------------
+
+describe('validatePMTemplate', () => {
+  it('returns no errors for a valid PM template', () => {
+    const errors = validatePMTemplate(validPMTemplate())
+    expect(errors).toHaveLength(0)
+  })
+
+  it.each(['name', 'equipmentId', 'frequency'] as const)(
+    'returns error when %s is missing',
+    (field) => {
+      const template = { ...validPMTemplate(), [field]: undefined }
+      const errors = validatePMTemplate(template)
+      expect(fieldError(errors, field)).toBeDefined()
+      expect(fieldError(errors, field)).toBeInstanceOf(ValidationError)
+    },
+  )
+
+  it('returns multiple errors when multiple fields are missing', () => {
+    const errors = validatePMTemplate({})
+    expect(errors.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PMTask validation
+// ---------------------------------------------------------------------------
+
+describe('validatePMTask', () => {
+  it('returns no errors for a valid PM task', () => {
+    const errors = validatePMTask(validPMTask())
+    expect(errors).toHaveLength(0)
+  })
+
+  it.each(['pmTemplateId', 'equipmentId', 'scheduledDate', 'status'] as const)(
+    'returns error when %s is missing',
+    (field) => {
+      const task = { ...validPMTask(), [field]: undefined }
+      const errors = validatePMTask(task)
+      expect(fieldError(errors, field)).toBeDefined()
+      expect(fieldError(errors, field)).toBeInstanceOf(ValidationError)
+    },
+  )
+
+  it('returns error when completedDate is before scheduledDate', () => {
+    const task = {
+      ...validPMTask(),
+      scheduledDate: '2026-03-01',
+      completedDate: '2026-02-15',
+    }
+    const errors = validatePMTask(task)
+    expect(fieldError(errors, 'completedDate')).toBeDefined()
+  })
+
+  it('allows completedDate equal to scheduledDate', () => {
+    const task = {
+      ...validPMTask(),
+      scheduledDate: '2026-03-01',
+      completedDate: '2026-03-01',
+    }
+    const errors = validatePMTask(task)
+    expect(fieldError(errors, 'completedDate')).toBeUndefined()
+  })
+
+  it('returns multiple errors when multiple fields are missing', () => {
+    const errors = validatePMTask({})
+    expect(errors.length).toBeGreaterThanOrEqual(4)
   })
 })
