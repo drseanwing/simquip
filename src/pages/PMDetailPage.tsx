@@ -21,12 +21,13 @@ import {
 } from '@fluentui/react-components'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { PMTask, PMTaskItem, EquipmentIssue } from '../types'
-import { PMStatus, PMFrequency, PMChecklistItemStatus, IssueStatus, IssuePriority } from '../types'
+import { PMStatus, PMChecklistItemStatus, IssueStatus, IssuePriority } from '../types'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import { useServices } from '../contexts/ServiceContext'
 import { useAsyncData } from '../hooks/useAsyncData'
 import { useAuth } from '../contexts/AuthContext'
+import { computeNextPMDate } from '../utils/dateUtils'
 
 const statusColorMap: Record<
   PMStatus,
@@ -45,28 +46,6 @@ const statusLabelMap: Record<PMStatus, string> = {
   [PMStatus.Completed]: 'Completed',
   [PMStatus.Overdue]: 'Overdue',
   [PMStatus.Cancelled]: 'Cancelled',
-}
-
-function computeNextDate(fromDate: string, frequency: PMFrequency): string {
-  const d = new Date(fromDate)
-  switch (frequency) {
-    case PMFrequency.Weekly:
-      d.setDate(d.getDate() + 7)
-      break
-    case PMFrequency.Monthly:
-      d.setMonth(d.getMonth() + 1)
-      break
-    case PMFrequency.Quarterly:
-      d.setMonth(d.getMonth() + 3)
-      break
-    case PMFrequency.SemiAnnual:
-      d.setMonth(d.getMonth() + 6)
-      break
-    case PMFrequency.Annual:
-      d.setFullYear(d.getFullYear() + 1)
-      break
-  }
-  return d.toISOString().slice(0, 10)
 }
 
 function defaultDueDate(): string {
@@ -333,7 +312,7 @@ export default function PMDetailPage() {
       // Auto-create next PM task from template
       let nextInfo = ''
       if (template) {
-        const nextDate = computeNextDate(task.scheduledDate, template.frequency)
+        const nextDate = computeNextPMDate(task.scheduledDate, template.frequency)
         const nextTask = await pmTaskService.create({
           pmTemplateId: template.pmTemplateId,
           equipmentId: task.equipmentId,

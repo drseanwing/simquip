@@ -9,34 +9,11 @@ import {
   IssueStatus,
   IssuePriority,
   PMChecklistItemStatus,
-  PMFrequency,
   PMStatus,
 } from '../types'
+import { computeNextPMDate } from '../utils/dateUtils'
 import type { DataService, ListOptions, PagedResult } from './dataService'
 import { validatePMTask, validatePMTemplate } from './validators'
-
-/** Compute the next scheduled date based on frequency. */
-function computeNextDate(fromDate: string, frequency: PMFrequency): string {
-  const d = new Date(fromDate)
-  switch (frequency) {
-    case PMFrequency.Weekly:
-      d.setDate(d.getDate() + 7)
-      break
-    case PMFrequency.Monthly:
-      d.setMonth(d.getMonth() + 1)
-      break
-    case PMFrequency.Quarterly:
-      d.setMonth(d.getMonth() + 3)
-      break
-    case PMFrequency.SemiAnnual:
-      d.setMonth(d.getMonth() + 6)
-      break
-    case PMFrequency.Annual:
-      d.setFullYear(d.getFullYear() + 1)
-      break
-  }
-  return d.toISOString().slice(0, 10)
-}
 
 /** Returns today's date as ISO string. */
 function today(): string {
@@ -294,7 +271,7 @@ export class PMService {
     // Auto-create next PM task
     let nextTask: PMTask | null = null
     if (template.active) {
-      const nextDate = computeNextDate(
+      const nextDate = computeNextPMDate(
         task.scheduledDate,
         template.frequency,
       )
